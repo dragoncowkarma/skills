@@ -4,7 +4,7 @@ description: Archive the current conversation state, including Markdown-converte
 license: MIT
 metadata:
   author: dragoncowkarma
-  version: "0.0.1"
+  version: "0.0.2"
   short-description: Automated conversation state archiver.
 ---
 

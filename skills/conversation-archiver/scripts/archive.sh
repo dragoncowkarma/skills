@@ -47,7 +47,7 @@ WALKTHROUGH="$BRAIN_PATH/walkthrough.md"
 
 # Convert Log to Markdown
 if [ -f "$LOG_FILE" ]; then
-    python3 "$SCRIPT_DIR/markdown_converter.py" "$LOG_FILE" "$ARCHIVE_DIR/conversation_history.md"
+    python3 "$SCRIPT_DIR/markdown_converter.py" "$LOG_FILE" "$ARCHIVE_DIR/conversation_history.md" "$PROJECT_ROOT" "$BRAIN_PATH" "$HOME"
     echo "Archived conversation history to $ARCHIVE_DIR/conversation_history.md"
 else
     echo "Log file not found at $LOG_FILE"
