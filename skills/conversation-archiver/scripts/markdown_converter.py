@@ -63,6 +63,7 @@ class LogConverter:
 
         markdown_content = f"# Conversation History\n\n*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
 
+        skipping_archiver = False
         with open(log_file, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
@@ -75,6 +76,15 @@ class LogConverter:
                     content = entry.get('content', '')
                     created_at = entry.get('created_at', '')
                     tool_calls = entry.get('tool_calls', [])
+
+                    if source == 'USER_EXPLICIT':
+                        if '/conversation-archiver' in content:
+                            skipping_archiver = True
+                        else:
+                            skipping_archiver = False
+
+                    if skipping_archiver:
+                        continue
 
                     content = self.sanitize_paths(content)
 
