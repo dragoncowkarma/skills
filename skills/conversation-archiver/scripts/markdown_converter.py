@@ -56,23 +56,10 @@ class LogConverter:
                 lines.append(f"{indent}- **{k}**: `{val}`")
         return "\n".join(lines)
 
-    def convert(self, log_file, output_file, api_data_file=None):
+    def convert(self, log_file, output_file):
         if not os.path.exists(log_file):
             print(f"Error: Log file {log_file} not found.")
             return False
-
-        api_steps = {}
-        if api_data_file and os.path.exists(api_data_file):
-            try:
-                with open(api_data_file, 'r') as f:
-                    api_data = json.load(f)
-                    for step in api_data.get('steps', []):
-                        idx = step.get('step_index')
-                        if idx is not None:
-                            api_steps[idx] = step
-                print(f"[*] Loaded {len(api_steps)} steps from API data for merging.")
-            except Exception as e:
-                print(f"Warning: Failed to load API data: {e}")
 
         markdown_content = f"# Conversation History\n\n*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
 
@@ -89,7 +76,6 @@ class LogConverter:
                     content = entry.get('content', '')
                     created_at = entry.get('created_at', '')
                     tool_calls = entry.get('tool_calls', [])
-                    step_index = entry.get('step_index')
 
                     if source == 'USER_EXPLICIT':
                         if '/conversation-archiver' in content:
@@ -99,19 +85,6 @@ class LogConverter:
 
                     if skipping_archiver:
                         continue
-
-                    if entry.get('status') == 'TRUNCATED':
-                        markdown_content += "> [!WARNING]\n> This step was TRUNCATED in the original log. "
-                        if step_index in api_steps:
-                            markdown_content += "Full content recovered from API.\n\n"
-                        else:
-                            markdown_content += "Use `--recover` to fetch full content.\n\n"
-
-                    # If we have API data for this step, prioritize it
-                    if step_index is not None and step_index in api_steps:
-                        api_entry = api_steps[step_index]
-                        content = api_entry.get('content', content)
-                        tool_calls = api_entry.get('tool_calls', tool_calls)
 
                     content = self.sanitize_paths(content)
 
@@ -152,12 +125,11 @@ def main():
     parser.add_argument("--root", help="Project root path for normalization")
     parser.add_argument("--brain", help="Brain path for normalization ($BRAIN_PATH)")
     parser.add_argument("--home", help="Home path for normalization (~)")
-    parser.add_argument("--api-data", help="Path to API recovered JSON data")
 
     args = parser.parse_args()
 
     converter = LogConverter(root_path=args.root, brain_path=args.brain, home_path=args.home)
-    if converter.convert(args.log_file, args.output_file, api_data_file=args.api_data):
+    if converter.convert(args.log_file, args.output_file):
         print(f"Successfully converted {args.log_file} to {args.output_file}")
     else:
         sys.exit(1)
