@@ -1,31 +1,74 @@
 ---
 name: conversation-archiver
-description: Archive the current conversation state, including Markdown-converted logs, implementation plans, tasks, and walkthroughs.
+description: Automate the archival of project context (logs, implementation plans, tasks) and recover truncated or missing conversation history.
 license: MIT
+compatibility: python3
 metadata:
   author: dragoncowkarma
-  version: "0.0.2"
-  short-description: Automated conversation state archiver.
+  version: "0.0.3"
+allowed-tools: bash(./scripts/archive.sh)
 ---
 
-# Conversation Archiver Skill
+# Conversation Archiver
 
-This skill automates the preservation of session data for long-term tracking and auditing.
+Automate the archival of project context (logs, implementation plans, tasks) and recover truncated or missing conversation history.
 
-## Workflow & Core Rules
+## When to use
 
-1. **[Data Gathering]**:
-   - Locate the conversation logs in the `.system_generated/logs` directory.
-   - Collect the core planning artifacts: `implementation_plan.md`, `task.md`, and `walkthrough.md`.
+- Before starting a new major task to preserve current state.
+- When handing over project context to another agent.
+- **NEW**: When a conversation appears truncated or missing from the Antigravity UI.
 
-2. **[Markdown Conversion]**:
-   - Use `scripts/markdown_converter.py` to transform the JSON-formatted `overview.txt` into a human-readable `conversation_history.md`.
-   - Ensure the output clearly distinguishes between User and AI roles.
+## Prerequisites & Setup
 
-3. **[Archival]**:
-   - Create a timestamped directory under `history/`.
-   - Move all processed and collected files into this directory.
+- Python 3.x
+- `pip install antigravity-history` (for recovery features)
 
-4. **[Execution]**:
-   - Run the skill using the `scripts/archive.sh` script with the current `conversation_id`.
-   - Command: `scripts/archive.sh <conversation_id>`
+## Workflow
+
+### Standard Archival
+
+Run the archiver to save the current conversation state:
+
+```bash
+/skills/conversation-archiver/scripts/archive.sh <conversation_id>
+```
+
+### Recovery Methods
+
+If your conversation is truncated or missing, use the following methods:
+
+#### Method 1: API Recovery (Recommended)
+
+Fetches the full conversation trajectory via the internal API (bypassing UI truncation).
+
+```bash
+/skills/conversation-archiver/scripts/archive.sh <conversation_id> --recover
+```
+
+> [!NOTE]
+> This requires identifying the `ANTIGRAVITY_PORT` (usually `61749`) and `ANTIGRAVITY_TOKEN` (CSRF token). The script attempts auto-detection, but you can provide them manually via `scripts/recover.py`.
+
+#### Method 2: Forced Re-indexing
+
+If conversations are missing from the sidebar, run:
+
+```bash
+/skills/conversation-archiver/scripts/archive.sh <conversation_id> --reindex
+```
+
+Follow the printed instructions to paste a specific prompt into a new chat.
+
+#### Method 3: .pb Injection
+
+If the UI index is corrupted, you can inject an old `.pb` file into a new dummy chat:
+
+```bash
+python3 scripts/recover.py inject <path_to_old_pb> <new_dummy_id>
+```
+
+## Guardrails & Execution Notes
+
+- Always backup `~/.gemini/antigravity/conversations/` before using the `inject` method.
+- Archival automatically excludes its own execution logs to prevent circular history.
+- Truncated steps in the history will be marked with a `[!WARNING]` block.
