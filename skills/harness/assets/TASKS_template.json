@@ -1,0 +1,19 @@
+{
+  "id": "H-INIT",
+  "status": "Ready",
+  "description": "Initialize the harness protocol and directory structure.",
+  "agent": "Antigravity",
+  "depends_on": [],
+  "mechanical_dod": {
+    "command": "ls .harness && ls docs/tasks",
+    "expected_exit_code": 0
+  },
+  "metrics": {
+    "tokens_used": 0,
+    "retry_count": 0,
+    "duration_seconds": 0
+  },
+  "approved": false,
+  "telemetry_hash": null,
+  "delta_note": "Ready to bootstrap."
+}

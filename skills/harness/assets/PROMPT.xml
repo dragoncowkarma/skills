@@ -1,0 +1,102 @@
+# [TARGET: {target_file}] [TASK: {task_id}]
+
+<harness_task id="{task_id}">
+  <metadata>
+    <agent_role>{agent_role}</agent_role>
+    <priority>{priority}</priority>
+  </metadata>
+
+  <context_links>
+    <!-- Use the Semantic Map (docs/map.md) to locate symbols -->
+    <link path="docs/map.md" symbols="{required_symbols}"/>
+    <link path="docs/delta/{dependency_id}.json"/>
+    
+    <!-- Hybrid Reference: Do NOT paste large logs here. Use path references. -->
+    {log_references}
+  </context_links>
+
+  <reasoning_protocol type="ToT">
+    <!-- MANDATORY: You must fill the [THOUGHT_PROCESS] block below before writing code. -->
+    <instruction>
+      1. [TEST_DESIGN]: Define the behavioral assertions required by the task.
+      2. [RED_PHASE]: If this is a *-RED task, describe the specific assertion that will fail and why. DO NOT IMPLEMENT PRODUCTION LOGIC.
+      3. [GREEN_PHASE]: If this is a *-GREEN task, describe the implementation logic to satisfy the RED tests.
+      4. Predict at least 2 failure modes (Worst-case scenarios).
+    </instruction>
+    <rationale>TDD prevents "tautological testing" (hallucinated successes) and ensures every line of code is auditable and intentional.</rationale>
+  </reasoning_protocol>
+
+  <work_scope>
+    <modify path="{target_file}"/>
+    <constraints>
+      <constraint>Surgical edits only. No refactoring of adjacent code.</constraint>
+      <constraint>RED PHASE CONSTRAINT: If task_id ends in "-RED", you are STRICTLY FORBIDDEN from modifying production files. You may only edit files in tests/ or equivalent.</constraint>
+      <constraint>Do NOT touch .harness/ or .git/ directories.</constraint>
+      <constraint>Do NOT attempt to copy harness.py to the local project directory. Always execute it directly from your skill workspace using its absolute path.</constraint>
+      <constraint>DOCUMENTATION CONSTRAINT: During the [DOCUMENT] stage, you are STRICTLY FORBIDDEN from modifying production or test code. You may ONLY update files in the `docs/` directory.</constraint>
+    </constraints>
+  </work_scope>
+
+  <mechanical_dod>
+    <instruction>
+      You MUST use the harness CLI to run tests and lock the telemetry hash. 
+      
+      TDD ENFORCEMENT:
+      1. For *-RED tasks, use: `python3 [PATH]/harness.py test --mode tdd-red --id {task_id} --cmd "{cmd}"`
+      2. For *-GREEN tasks, use: `python3 [PATH]/harness.py test --id {task_id} --cmd "{cmd}"`
+      
+      CRITICAL: Standard mode requires MANDATORY Line Coverage >= 80%.
+      You MUST use a coverage tool (e.g., `c8`, `nyc`) with your test runner.
+      Example: `c8 node --test timer.test.js`
+      
+      INTEGRITY VIOLATION: The system PHYSICALLY BLOCKS 'grep', 'ls', 'cat', 'echo', and 'node -e' to prevent coverage bypass. 
+      Attempting to use these will result in an immediate task freeze.
+      You MUST write actual behavioral/functional test scripts that perform real assertions on the business logic.
+
+      GOVERNANCE CONSTRAINT: Never overwrite or modify an existing AGENTS.md unless the user's prompt contains an explicit request to do so. Default behavior is Read-Only for existing AGENTS.md.
+    </instruction>
+    <command>python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py test --id {task_id} --cmd "{validation_command}"</command>
+    <telemetry_check>
+      <metric type="status">Verified</metric>
+      <metric type="coverage">Min 80% Line Coverage (LCOV)</metric>
+      <metric type="hash_integrity">Locked by System with Salt</metric>
+    </telemetry_check>
+  </mechanical_dod>
+
+  <documentation_hook>
+    <instruction>
+      Once Verified, you MUST synchronize the project's ISO documentation.
+      1. Architecture: `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_42010`
+      2. Quality: `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_25010`
+    </instruction>
+    <output>
+      - docs/architecture.md
+      - docs/quality_metrics.md
+    </output>
+  </documentation_hook>
+
+  <failure_handling>
+    <retry limit="3"/>
+    <on_failure>
+      Update docs/tasks/{task_id}.json with status [Failed] and analyze coverage/lcov.info to find untested paths.
+    </on_failure>
+  </failure_handling>
+</harness_task>
+
+---
+
+## [STEERING_POINT]
+1. Once status is `Verified` (with 80%+ coverage), IMMEDIATELY run the documentation hooks:
+`python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_42010`
+`python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_25010`
+
+2. THEN, run the final commit:
+`python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py commit --id {task_id} --msg "Detailed description of changes"`
+
+---
+
+## [THOUGHT_PROCESS]
+<!-- Write your System 2 reasoning here -->
+
+## [CODE_CHANGE]
+<!-- Implementation goes here -->
