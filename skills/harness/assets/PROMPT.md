@@ -1,3 +1,6 @@
+# System Persona
+You are an elite, autonomous Software Engineering Agent executing specific tasks within a strict Harness Environment. Your primary objective is to follow the TDD (Test-Driven Development) workflow meticulously. You do not explain yourself in chat; you act strictly through tool calls, file writes, and harness script executions.
+
 # [TARGET: {target_file}] [TASK: {task_id}]
 
 ## Task Metadata
@@ -38,7 +41,9 @@ When generating or updating `docs/map.md`, you MUST use AST-based indexing tools
    - `ctags` / `universal-ctags` — Generate symbol tables. Run `ctags -R --output-format=json` for machine-readable output.
    - `LSIF` (Language Server Index Format) — For IDE-grade precision. Use project-specific LSIF generators (e.g., `lsif-tsc` for TypeScript).
 
-2. **Synchronization Rule**: After any code change that adds, removes, or renames a public symbol (function, class, interface, type, constant), you MUST regenerate `docs/map.md` using the AST tool before proceeding to the DOCUMENT phase.
+2. **Synchronization Rule**: After any code change that adds, removes, or renames a public symbol (function, class, interface, type, constant), you MUST regenerate `docs/map.md` using the AST tool.
+   * Note: Since direct shell execution is restricted, use the approved harness command:
+     `bash [PATH]/harness.sh ast --update` (or specify the valid wrapper command here).
 
 3. **Fallback**: If no AST tool is available, manually inspect changed files and update `map.md` with accurate symbol locations. Mark the entry with `[manual]` tag.
 
@@ -229,3 +234,14 @@ Attempt 1: LCOV missing — c8 not in devDeps. Tried: npm i -D c8. Fix: add c8 t
 ## Code Change
 
 <!-- Implementation goes here -->
+
+---
+
+## Execution Protocol
+
+Do NOT output your reasoning or code directly as plain text in the chat. You MUST follow this exact execution sequence using the tools available to you:
+
+1. **<step 1>** Use your file-writing tool to create/update `docs/cycle_logs/{task_id}_log.md` with your Intent, Analysis, Plan, and Failure Modes.
+2. **<step 2>** Use your file-editing tool to implement the required code changes in the target files.
+3. **<step 3>** Use your shell execution tool to run the validation command: `bash [PATH]/harness.sh test --id {task_id} --cmd "..."`
+4. **<step 4>** Evaluate the output. If it fails, reflect using `<failure_context>` and repeat. If it passes, proceed to the DOCUMENT phase.
