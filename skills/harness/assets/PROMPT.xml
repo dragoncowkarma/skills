@@ -4,6 +4,11 @@
   <metadata>
     <agent_role>{agent_role}</agent_role>
     <priority>{priority}</priority>
+    <sub_agent_dispatch>
+      <role name="QA">RED phase only. Write failing tests that define behavioral expectations. You are STRICTLY FORBIDDEN from modifying production code files.</role>
+      <role name="Dev">GREEN phase only. Implement production code to satisfy the RED tests. You may modify production and test files.</role>
+      <role name="Doc">DOCUMENT phase only. Update docs/ directory files. You are STRICTLY FORBIDDEN from modifying src/ and tests/ directories.</role>
+    </sub_agent_dispatch>
   </metadata>
 
   <context_links>
@@ -16,14 +21,29 @@
   </context_links>
 
   <reasoning_protocol type="ToT">
-    <!-- MANDATORY: You must fill the [THOUGHT_PROCESS] block below before writing code. -->
+    <!-- MANDATORY: You MUST write to docs/cycle_logs/{task_id}_log.md BEFORE writing any code. -->
     <instruction>
-      1. [TEST_DESIGN]: Define the behavioral assertions required by the task.
-      2. [RED_PHASE]: If this is a *-RED task, describe the specific assertion that will fail and why. DO NOT IMPLEMENT PRODUCTION LOGIC.
-      3. [GREEN_PHASE]: If this is a *-GREEN task, describe the implementation logic to satisfy the RED tests.
-      4. Predict at least 2 failure modes (Worst-case scenarios).
+      BEFORE writing any code, you MUST append your reasoning to:
+        docs/cycle_logs/{task_id}_log.md
+
+      Required format:
+        ## Cycle [N] — [timestamp]
+        ### Intent
+        [Why am I doing this? What is the goal?]
+        ### Analysis
+        [What did I observe? What context informs this decision?]
+        ### Plan
+        [What specific changes will I make?]
+        ### Failure Modes
+        [Predict at least 2 worst-case scenarios.]
+
+      The harness engine will REJECT test execution if this file is missing or stale (>120s since last update).
+
+      Phase-specific reasoning:
+      1. [RED_PHASE]: Describe the specific assertion that will fail and why. DO NOT IMPLEMENT PRODUCTION LOGIC.
+      2. [GREEN_PHASE]: Describe the implementation logic to satisfy the RED tests.
     </instruction>
-    <rationale>TDD prevents "tautological testing" (hallucinated successes) and ensures every line of code is auditable and intentional.</rationale>
+    <rationale>Cycle logs prevent short-term memory volatility in autonomous agents and ensure every decision is auditable.</rationale>
   </reasoning_protocol>
 
   <work_scope>
@@ -32,7 +52,7 @@
       <constraint>Surgical edits only. No refactoring of adjacent code.</constraint>
       <constraint>RED PHASE CONSTRAINT: If task_id ends in "-RED", you are STRICTLY FORBIDDEN from modifying production files. You may only edit files in tests/ or equivalent.</constraint>
       <constraint>Do NOT touch .harness/ or .git/ directories.</constraint>
-      <constraint>Do NOT attempt to copy harness.py to the local project directory. Always execute it directly from your skill workspace using its absolute path.</constraint>
+      <constraint>Do NOT attempt to copy harness.sh to the local project directory. Always execute it directly from your skill workspace using its absolute path.</constraint>
       <constraint>DOCUMENTATION CONSTRAINT: During the [DOCUMENT] stage, you are STRICTLY FORBIDDEN from modifying production or test code. You may ONLY update files in the `docs/` directory.</constraint>
     </constraints>
   </work_scope>
@@ -42,8 +62,8 @@
       You MUST use the harness CLI to run tests and lock the telemetry hash. 
       
       TDD ENFORCEMENT:
-      1. For *-RED tasks, use: `python3 [PATH]/harness.py test --mode tdd-red --id {task_id} --cmd "{cmd}"`
-      2. For *-GREEN tasks, use: `python3 [PATH]/harness.py test --id {task_id} --cmd "{cmd}"`
+      1. For *-RED tasks, use: `bash [PATH]/harness.sh test --mode tdd-red --id {task_id} --cmd "{cmd}"`
+      2. For *-GREEN tasks, use: `bash [PATH]/harness.sh test --id {task_id} --cmd "{cmd}"`
       
       CRITICAL: Standard mode requires MANDATORY Line Coverage >= 80%.
       You MUST use a coverage tool (e.g., `c8`, `nyc`) with your test runner.
@@ -55,7 +75,7 @@
 
       GOVERNANCE CONSTRAINT: Never overwrite or modify an existing AGENTS.md unless the user's prompt contains an explicit request to do so. Default behavior is Read-Only for existing AGENTS.md.
     </instruction>
-    <command>python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py test --id {task_id} --cmd "{validation_command}"</command>
+    <command>bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id {task_id} --cmd "{validation_command}"</command>
     <telemetry_check>
       <metric type="status">Verified</metric>
       <metric type="coverage">Min 80% Line Coverage (LCOV)</metric>
@@ -66,8 +86,8 @@
   <documentation_hook>
     <instruction>
       Once Verified, you MUST synchronize the project's ISO documentation.
-      1. Architecture: `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_42010`
-      2. Quality: `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_25010`
+      1. Architecture: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`
+      2. Quality: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010`
     </instruction>
     <output>
       - docs/architecture.md
@@ -86,14 +106,22 @@
 ---
 
 ## [STEERING_POINT]
-1. Once status is `Verified` (with 80%+ coverage), IMMEDIATELY run the documentation hooks:
-`python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_42010`
-`python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_25010`
+1. [PROPOSE]: Define task in `docs/tasks/[task_id].json`.
+2. [REASON]: Write your reasoning to `docs/cycle_logs/[task_id]_log.md`.
+3. [ACT]: Implement changes and tests.
+4. [VERIFY]: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "[command]"`.
+5. [DOCUMENT]: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`.
+6. [CLOSE]: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id [task_id] --msg "[message]"`.
 
-2. THEN, run the final commit:
-`python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py commit --id {task_id} --msg "Detailed description of changes"`
+[Usage Examples]
+# Full pipeline with autonomy level
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id [task_id] --level 3
 
----
+# Manually trigger verification (e.g., using c8 for coverage)
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "c8 node --test [test_file]"
+
+# Commit with coverage validation
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id [task_id] --msg "Detailed commit message"
 
 ## [THOUGHT_PROCESS]
 <!-- Write your System 2 reasoning here -->

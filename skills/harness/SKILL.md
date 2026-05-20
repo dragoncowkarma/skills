@@ -1,16 +1,44 @@
 ---
 name: harness
-description: A high-reliability, telemetry-backed autonomous agent protocol. Implements "Harness-as-a-Protocol" with automated steering, hybrid reference context management, and developer-aware actor detection.
+description: A high-reliability, telemetry-backed autonomous agent protocol with sub-agent delegation, autonomy level control, and mandatory thought-process logging. Implements "Harness-as-a-Protocol" with automated steering and developer-aware actor detection.
 license: MIT
 metadata:
   author: dragoncowkarma
-  version: "1.0.0"
+  version: "2.0.0"
   architecture: "Harness-as-a-Protocol"
 ---
 
 # `harness` Skill: The Autonomous Protocol
 
 The `harness` skill transforms the repository into a self-regulating "hardware harness" for AI agents. It prioritizes the **Repository as the System of Record (SOR)** and enforces governance through **Mechanical Invariants** and **Automated Steering via Git Hooks**.
+
+## Sub-Agent Workflow
+
+Tasks can be delegated to specialized sub-agents via the `assigned_sub_agent` field in task JSON:
+
+| Sub-Agent | Phase | Scope |
+|-----------|-------|-------|
+| **QA** | RED | Write failing tests only. Forbidden from production code. |
+| **Dev** | GREEN | Implement production code to pass tests. |
+| **Doc** | DOCUMENT | Update `docs/` only. Forbidden from `src/` and `tests/`. |
+
+Set `"assigned_sub_agent": null` for single-agent mode (default).
+
+## Autonomy Levels
+
+Control the level of human oversight with `--level`:
+
+| Level | Name | Behavior |
+|-------|------|----------|
+| 1 | **Planning** | Generate `docs/` structure and cycle log template only, then exit. |
+| 2 | **Prompting** | Generate prompt text from `PROMPT.xml`, print to stdout, then exit. |
+| 3 | **Interactive** | Execute RED→GREEN→DOC loop, pause after each phase for user approval. **(Default)** |
+| 4 | **Autonomous** | Full auto loop with sub-agent delegation, no pauses. Timeout extended to 120s. |
+
+```bash
+# Example: Run fully autonomous pipeline
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 4
+```
 
 ## TDD Workflow
 
@@ -19,79 +47,104 @@ To prevent "tautological testing" and hallucination, development must be split i
 1.  **RED Task (Adversarial QA)**:
     - **Goal**: Write failing tests based on requirements.
     - **Naming**: `[task_id]-RED.json`.
-    - **Execution**: `harness test --mode tdd-red --id [id] --cmd "[cmd]"`.
-    - **Constraint**: You are ONLY allowed to modify test files. Production files must remain untouched.
+    - **Execution**: `harness.sh test --mode tdd-red --id [id] --cmd "[cmd]"`.
+    - **Constraint**: You are ONLY allowed to modify test files.
     - **Validation**: The engine rejects SyntaxErrors. You must produce a valid `AssertionError`.
 2.  **GREEN Task (Implementation Engineer)**:
     - **Goal**: Write production code to satisfy the tests.
     - **Naming**: `[task_id]-GREEN.json`.
     - **Dependency**: Must list the RED task in `depends_on`.
-    - **Execution**: Standard `harness test`.
+    - **Execution**: Standard `harness.sh test`.
     - **Validation**: Must achieve 80%+ Line Coverage.
+
+## Reasoning Protocol (Cycle Logs)
+
+To prevent short-term memory loss in autonomous agents, the harness **mandates** that agents write their reasoning to `docs/cycle_logs/[task_id]_log.md` **before** any code change.
+
+The engine validates:
+- The cycle log file exists
+- It was modified within the last 120 seconds
+
+Test execution is **rejected** if the cycle log is missing or stale.
 
 ## Core Principles
 
 1.  **Repository as SOR**: All state (tasks, maps, decisions) must live in the repo (`docs/tasks/*.json`, `docs/map.md`).
-2.  **Mechanical Invariant Enforcement**: Rules are enforced by a hardened CLI (`harness.py`). **Note**: The `harness.py` engine is NOT located in the user's project repository. It is stored in your global skills directory.
-3.  **Shell-Safe Execution**: Commands are executed via `shlex` and `subprocess` (shell=False) to prevent command injection.
-4.  **Cross-Validation Integrity**: The system re-verifies the physical telemetry log against the registry hash before every sensitive operation (e.g., `commit`). This prevents agents from manual JSON tampering.
-5.  **Agent-Native Execution**: The agent must automatically resolve the actual absolute path of its own skill directory (e.g., `/Users/macbook/Desktop/skills/skills/harness/scripts/harness.py`) before executing any commands. Do NOT attempt to copy `harness.py` to the local project.
+2.  **Mechanical Invariant Enforcement**: Rules are enforced by a hardened CLI (`harness.sh`). **Note**: The `harness.sh` engine is NOT located in the user's project repository. It is stored in your global skills directory.
+3.  **Shell-Safe Execution**: Commands are executed via `bash -c` (no `eval`). No `sudo` or privilege escalation.
+4.  **Cross-Validation Integrity**: The system re-verifies the physical telemetry log against the registry hash before every sensitive operation (e.g., `commit`).
+5.  **Agent-Native Execution**: The agent must resolve the absolute path of its skill directory (e.g., `/Users/.../skills/harness/scripts/harness.sh`) before executing. Do NOT copy `harness.sh` to the local project.
 6.  **Context-Aware Governance (AGENTS.md)**:
-    - **Rule 1 (Check First)**: Before starting any epic or task, the agent MUST check if `AGENTS.md` exists in the project root.
-    - **Rule 2 (Preservation)**: IF `AGENTS.md` already exists, you MUST read it to understand the project's existing governance. You are STRICTLY FORBIDDEN from modifying or adding rules to it by default. Respect the existing rules.
-    - **Rule 3 (Creation)**: IF `AGENTS.md` does NOT exist, you MUST generate it using the standard "Harness Protocol Governance" template.
-    - **Rule 4 (Explicit Override)**: The ONLY exception to Rule 2 is if the human user explicitly commands you to "update", "modify", or "add rules to" `AGENTS.md` in their prompt.
+    - **Rule 1 (Check First)**: Before starting any task, check if `AGENTS.md` exists in the project root.
+    - **Rule 2 (Preservation)**: IF `AGENTS.md` exists, read and follow it. Do NOT modify it.
+    - **Rule 3 (Creation)**: IF `AGENTS.md` does NOT exist, generate it using the Harness Protocol template.
+    - **Rule 4 (Explicit Override)**: Only modify `AGENTS.md` if the user explicitly commands it.
 
-2.  **[ACT]**: Agent implements the change and writes unit tests.
-3.  **[VERIFY]**: Agent runs tests via `harness test --id [task_id] --cmd "[command]"`. The system re-verifies the physical telemetry log against the registry hash, calculates **Line Coverage** (must be >= 80%), and sets status to `Verified`. ALL tasks MUST go through this step. Bypassing this step or skipping straight to the next task is an Integrity Violation.
-4.  **[DOCUMENT]**: Agent synchronizes architectural and quality documentation using ISO standard templates.
-    - `harness document --standard ISO_42010`: Updates `docs/architecture.md`.
-    - `harness document --standard ISO_25010`: Updates `docs/quality_metrics.md`.
-5.  **[CLOSE]**: Agent submits final diff via `harness commit --id [task_id] --msg "[message]"`. System allows commit if status is Verified and coverage is validated.
+## Workflow
+
+0. **[GOVERNANCE]**: Check for `AGENTS.md` in root. If exists, read and follow. If not, generate.
+1. **[PROPOSE]**: Define task in `docs/tasks/[task_id].json`.
+2. **[REASON]**: Write reasoning to `docs/cycle_logs/[task_id]_log.md`.
+3. **[ACT]**: Implement changes and tests.
+4. **[VERIFY]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "[command]"`.
+5. **[DOCUMENT]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`.
+6. **[CLOSE]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id [task_id] --msg "[message]"`.
+
+## Usage Examples
+
+```bash
+# Full pipeline with interactive approval gates
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3
+
+# TDD Red phase verification
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --mode tdd-red --id TASK-001-RED --cmd "c8 node --test test.js"
+
+# Standard verification (requires 80%+ coverage)
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js"
+
+# Generate ISO documentation
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010
+
+# Commit with coverage validation
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id TASK-001 --msg "feat: add validation"
+
+# Generate prompt only (Level 2)
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 2
+```
+
+## Guardrails & Security
+
+- **Tamper Resistance**: Any modification to `.harness/` by an AI agent results in an immediate **Integrity Violation**.
+- **Context Optimization**: Keep `<failure_context>` under 100 tokens. Use `<log_ref path="..." lines="..."/>` for details.
+- **Loop Protection**: Maximum 3 self-healing attempts before mandatory Human Hand-off.
+- **Strict Verification (Coverage-Driven)**: Every task MUST be verified via `harness.sh test`.
+  - **Coverage Threshold**: **Line Coverage MUST be >= 80%** (via LCOV).
+  - **Hardened Verification**: The system blocks `grep`, `ls`, `cat`, `echo`, and `node -e` as test commands.
+  - **Behavioral Evidence**: Agents must provide actual behavioral proof via test scripts with coverage tools.
+- **Cycle Log Enforcement**: Test execution is blocked if `docs/cycle_logs/[task_id]_log.md` is missing or stale.
+- **No Privilege Escalation**: `harness.sh` never uses `sudo` or any privilege escalation commands.
 
 ## ROI & Estimation (Business Metrics)
 
-Every task in the registry tracks its own productivity metrics:
+Every task tracks its own productivity metrics:
 - **`tokens_used`**: Estimated API cost for this task.
 - **`retry_count`**: Number of self-healing loops required.
 - **`duration_seconds`**: Real-world time from `Ready` to `Approved`.
-
-These metrics allow PMs to calculate the **AI Velocity** and provide data-driven estimations for future milestones.
+- **`assigned_sub_agent`**: Which sub-agent handled this task.
+- **`sub_task_status`**: Delegation lifecycle state.
 
 ## Mandatory Artifacts
 
 ### 1. The Task Registry (`docs/tasks/`)
-A directory-based registry where each task has its own JSON file. This prevents merge conflicts in multi-agent environments.
+A directory-based registry where each task has its own JSON file.
 - **Path**: `docs/tasks/[task_id].json`
 
 ### 2. Automated Semantic Map (`docs/map.md`)
 An auto-generated index of all functions, classes, and domain boundaries.
-- **Maintenance**: Updated automatically by `harness --map` using AST parsing.
 
 ### 3. XML ACI Prompts (`docs/prompts/`)
-All tasks must use the `PROMPT.xml` template, which enforces the **Hybrid Reference** pattern.
+All tasks must use the `PROMPT.xml` template.
 
-## Guardrails & Security
-
-- **Tamper Resistance**: Any modification to `.harness/` by an AI agent results in an immediate **Integrity Violation** and task freeze.
-- **Context Optimization**: Keep `<failure_context>` under 100 tokens. Always use `<log_ref path="..." lines="..."/>` for detailed debugging data.
-- **Loop Protection**: Maximum 3 self-healing attempts before mandatory Human Hand-off.
-- **Strict Verification (Coverage-Driven)**: Every single task MUST be verified via the `harness test` CLI. 
-  - **Coverage Threshold**: **Line Coverage MUST be >= 80%** (via LCOV). Failing to provide a coverage report or falling below the threshold results in an immediate **Integrity Violation**.
-  - **Hardened Verification**: The system physically blocks `grep`, `ls`, `cat`, `echo`, and `node -e` as root test commands.
-  - **Behavioral Evidence**: Agents must provide actual behavioral proof via test scripts (e.g., Jest, Pytest, Node) with coverage tools (e.g., c8, nyc). Simple string matching or file existence checks are strictly forbidden.
-
-[Workflow]
-0. [GOVERNANCE]: Check for `AGENTS.md` in root. If exists, read and follow. If not, generate using Harness template.
-1. [PROPOSE]: Define task in `docs/tasks/[task_id].json`.
-2. [ACT]: Implement changes and tests.
-3. [VERIFY]: Run `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py test --id [task_id] --cmd "[command]"`.
-4. [DOCUMENT]: Run `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py document --standard ISO_42010`.
-5. [CLOSE]: Run `python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py commit --id [task_id] --msg "[message]"`.
-
-[Usage Examples]
-# Manually trigger verification (e.g., using c8 for coverage)
-python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py test --id [task_id] --cmd "c8 node --test [test_file]"
-
-# Commit with coverage validation
-python3 [ABSOLUTE_SKILL_PATH]/scripts/harness.py commit --id [task_id] --msg "Detailed commit message"
+### 4. Cycle Logs (`docs/cycle_logs/`)
+Mandatory reasoning logs that document agent decision-making before each code change.

@@ -15,5 +15,7 @@
   },
   "approved": false,
   "telemetry_hash": null,
+  "assigned_sub_agent": null,
+  "sub_task_status": "Pending",
   "delta_note": "Ready to bootstrap."
 }
