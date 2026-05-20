@@ -524,8 +524,8 @@ document() {
   echo "📄 Generating Documentation for Standard: ${standard}..."
 
   if [[ "$standard" == "ISO_42010" ]]; then
-    local template_path="${ASSETS_DIR}/ISO_42010_template.md"
-    local output_path="docs/architecture.md"
+    local template_path="${ASSETS_DIR}/templates/iso_42010_template.md"
+    local output_path="docs/architecture/system_architecture.md"
 
     if [[ ! -f "$MAP_PATH" ]]; then
       echo "⚠️ Warning: ${MAP_PATH} not found. Skipping architecture doc."
@@ -571,8 +571,8 @@ document() {
     echo "✅ Architecture Specification updated: ${output_path}"
 
   elif [[ "$standard" == "ISO_25010" ]]; then
-    local template_path="${ASSETS_DIR}/ISO_25010_template.md"
-    local output_path="docs/quality_metrics.md"
+    local template_path="${ASSETS_DIR}/templates/iso_25010_template.md"
+    local output_path="docs/management/quality_metrics.md"
 
     # Check for task files
     local task_files
@@ -1119,25 +1119,25 @@ docs_init() {
 
   # Template definitions: KEY:target_dir:src_file:dest_file
   local entries=(
-    "SRS:docs/specs:SRS_template.md:SRS.md"
-    "SDD:docs/specs:SDD_template.md:SDD.md"
-    "SCS:docs/specs:SCS_template.md:SCS.md"
-    "KANBAN:docs/agile:KANBAN_template.md:KANBAN.md"
-    "WBS:docs/agile:WBS_template.md:WBS.md"
-    "SCRUM:docs/agile:SCRUM_template.md:SCRUM.md"
-    "ADR:docs/decisions:ADR_template.md:ADR-001.md"
-    "STD:docs/testing:STD_template.md:STD.md"
-    "STR:docs/testing:STR_template.md:STR.md"
-    "API_SPEC:docs/api:API_SPEC_template.md:API_SPEC.md"
-    "TROUBLESHOOTING:docs/troubleshooting:TROUBLESHOOTING_template.md:TROUBLESHOOTING.md"
+    "SRS:docs/requirements:srs_template.md:srs.md"
+    "SDD:docs/architecture:sdd_template.md:sdd.md"
+    "SCS:docs/architecture:scs_template.md:scs.md"
+    "KANBAN:docs/management:kanban_template.md:kanban.md"
+    "WBS:docs/management:wbs_template.md:wbs.md"
+    "SCRUM:docs/management:scrum_template.md:scrum.md"
+    "ADR:docs/management:adr_template.md:adr-001.md"
+    "STD:docs/testing:std_template.md:std.md"
+    "STR:docs/testing:str_template.md:str.md"
+    "API_SPEC:docs/architecture:api_spec_template.md:api_spec.md"
+    "TROUBLESHOOTING:docs/management:troubleshooting_template.md:troubleshooting.md"
   )
 
   # Lite mode: only essential templates
   local lite_entries=(
-    "SRS:docs/specs:SRS_template.md:SRS.md"
-    "SDD:docs/specs:SDD_template.md:SDD.md"
-    "KANBAN:docs/agile:KANBAN_template.md:KANBAN.md"
-    "WBS:docs/agile:WBS_template.md:WBS.md"
+    "SRS:docs/requirements:srs_template.md:srs.md"
+    "SDD:docs/architecture:sdd_template.md:sdd.md"
+    "KANBAN:docs/management:kanban_template.md:kanban.md"
+    "WBS:docs/management:wbs_template.md:wbs.md"
   )
 
   local active_entries
@@ -1146,6 +1146,14 @@ docs_init() {
     active_entries=("${lite_entries[@]}")
   else
     active_entries=("${entries[@]}")
+  fi
+
+  # Create index.md if it doesn't exist
+  mkdir -p docs
+  if [[ ! -f "docs/index.md" ]]; then
+    echo "# Project Documentation Index" > docs/index.md
+    echo "This is the master index for the fragmented documentation architecture." >> docs/index.md
+    echo "All fragments should be referenced here." >> docs/index.md
   fi
 
   local project_name
@@ -1200,11 +1208,68 @@ docs_init() {
   echo ""
   echo "📋 Documentation scaffold complete: ${count} file(s) created."
   if [[ "$LITE_MODE" == "true" ]]; then
-    echo "   Lite mode: docs/specs/, docs/agile/"
+    echo "   Lite mode: docs/requirements/, docs/architecture/, docs/management/"
   else
-    echo "   Core directories: docs/specs/, docs/agile/, docs/decisions/, docs/testing/, docs/api/, docs/troubleshooting/"
+    echo "   Core directories: docs/requirements/, docs/architecture/, docs/management/, docs/testing/"
   fi
   echo "   Harness directories: docs/tasks/, docs/cycle_logs/, docs/prompts/"
+}
+
+# ===== DOCUMENT BUILD =====
+document_build() {
+  echo "📚 Stitching fragmented documentation into a single build..."
+  
+  local build_dir="docs/build"
+  local output_file="${build_dir}/project_documentation_full.md"
+  
+  mkdir -p "$build_dir"
+  
+  # Clear existing build
+  > "$output_file"
+  
+  # Helper to concatenate with header
+  append_section() {
+    local dir="$1"
+    local title="$2"
+    if [[ -d "$dir" ]]; then
+      local has_files=false
+      for f in "$dir"/*.md; do
+        if [[ -f "$f" ]]; then
+          has_files=true
+          break
+        fi
+      done
+      
+      if [[ "$has_files" == "true" ]]; then
+        echo "" >> "$output_file"
+        echo "=================================================================" >> "$output_file"
+        echo "# ${title}" >> "$output_file"
+        echo "=================================================================" >> "$output_file"
+        echo "" >> "$output_file"
+        for f in "$dir"/*.md; do
+          if [[ -f "$f" ]]; then
+            echo ">> Adding ${f}"
+            echo "" >> "$output_file"
+            echo "<!-- Source: ${f} -->" >> "$output_file"
+            cat "$f" >> "$output_file"
+            echo "" >> "$output_file"
+          fi
+        done
+      fi
+    fi
+  }
+
+  if [[ -f "docs/index.md" ]]; then
+    echo ">> Adding docs/index.md"
+    cat "docs/index.md" >> "$output_file"
+  fi
+
+  append_section "docs/requirements" "Requirements"
+  append_section "docs/architecture" "Architecture"
+  append_section "docs/management" "Management & Operations"
+  append_section "docs/testing" "Testing"
+  
+  echo "✅ Document build complete: ${output_file}"
 }
 
 # ===== HELP =====
@@ -1219,6 +1284,7 @@ Commands:
   run           Execute full pipeline with autonomy level
   approve       Human-only task approval (CI: token-based)
   document      Generate ISO documentation
+  document-build Build fragmented docs into a single file
   docs-init     Scaffold documentation templates into project
   commit        Verified commit with integrity check
   check         Pre-commit integrity check
@@ -1336,6 +1402,9 @@ main() {
       ;;
     document)
       document "$standard"
+      ;;
+    document-build)
+      document_build
       ;;
     commit)
       [[ -z "$task_id" ]] && { echo "❌ --id required"; exit 1; }

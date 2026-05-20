@@ -144,8 +144,9 @@ After 3 failed attempts, emit `<human_handoff reason="..."/>` and STOP.
 3. **[ACT]**: Implement changes and tests.
 4. **[VERIFY]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "[command]"`.
 5. **[DOCUMENT]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`.
-   - Use **fragment-based updates** — only modify sections affected by this task.
+   - Use **fragment-based updates** — do not rewrite monolithic documents. Read `docs/index.md` first, route to the correct fragmented file (e.g., `docs/requirements/auth.md`), and apply surgical updates.
    - For KANBAN: Run `harness.sh kanban-render` (SSOT, do not edit directly).
+   - For Human Review: Run `harness.sh document-build` to stitch fragments together.
 6. **[CLOSE]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id [task_id] --msg "[message]"`.
 
 ## Usage Examples
@@ -257,20 +258,39 @@ All tasks must use the `PROMPT.md` template for ACI prompt generation.
 ### 4. Cycle Logs (`docs/cycle_logs/`)
 Mandatory reasoning logs that document agent decision-making before each code change.
 
-## Documentation Templates
+## Documentation Templates & Fragmented Architecture
 
-The harness provides a complete set of software engineering and agile document templates. Use `harness.sh docs-init` to scaffold these into a target project, or `harness.sh docs-init --lite` for essentials only (SRS, SDD, KANBAN, WBS).
+The harness utilizes a **Fragment-Based Documentation Architecture** to optimize AI token context and prevent monolithic file management. 
+
+### Directory Structure
+```
+docs/
+├── index.md                  # Master Index (Routing file for AI agents)
+├── requirements/             # Fragmented SRS/Functional specs
+├── architecture/             # Fragmented SDD/ISO_42010 components
+├── management/               # Kanban, Scrum, ADRs, Troubleshooting
+└── tasks/                    # Task JSONs
+```
+
+**AI Documentation Rule:** Agents must NEVER rewrite entire documents. They should first read `docs/index.md` to map the structure, then locate and surgically modify only the specific fragment file needed. To compile for human reading, use `harness.sh document-build`.
+
+### Available Templates
+The harness provides a complete set of software engineering and agile document templates. Use `harness.sh docs-init` to scaffold the fragmented directory structure and these templates into a target project, or `harness.sh docs-init --lite` for essentials only.
 
 | Template | File | Purpose |
 |---|---|---|
-| **SRS** | `assets/templates/SRS_template.md` | Software Requirements Specification |
-| **SDD** | `assets/templates/SDD_template.md` | Software Design Document |
-| **SCS** | `assets/templates/SCS_template.md` | Software Configuration Specification |
-| **Kanban** | `assets/templates/KANBAN_template.md` | Task tracking — SSOT view (auto-rendered) |
-| **WBS** | `assets/templates/WBS_template.md` | Work Breakdown Structure (Phase/Task/Sub-task) |
-| **Scrum** | `assets/templates/SCRUM_template.md` | Sprint & daily progress tracking |
-| **ADR** | `assets/templates/ADR_template.md` | Architecture Decision Record |
-| **STD** | `assets/templates/STD_template.md` | Software Test Design (TDD-aligned) |
-| **STR** | `assets/templates/STR_template.md` | Software Test Report (telemetry-integrated) |
-| **API Spec** | `assets/templates/API_SPEC_template.md` | API Specification (OpenAPI 3.0 YAML) |
-| **Troubleshooting** | `assets/templates/TROUBLESHOOTING_template.md` | Error resolution & incident log |
+| **SRS** | `assets/templates/srs_template.md` | Software Requirements Specification |
+| **SDD** | `assets/templates/sdd_template.md` | Software Design Document |
+| **SCS** | `assets/templates/scs_template.md` | Software Configuration Specification |
+| **Kanban** | `assets/templates/kanban_template.md` | Task tracking — SSOT view (auto-rendered) |
+| **WBS** | `assets/templates/wbs_template.md` | Work Breakdown Structure (Phase/Task/Sub-task) |
+| **Scrum** | `assets/templates/scrum_template.md` | Sprint & daily progress tracking |
+| **ADR** | `assets/templates/adr_template.md` | Architecture Decision Record |
+| **STD** | `assets/templates/std_template.md` | Software Test Design (TDD-aligned) |
+| **STR** | `assets/templates/str_template.md` | Software Test Report (telemetry-integrated) |
+| **API Spec** | `assets/templates/api_spec_template.md` | API Specification (OpenAPI 3.0 YAML) |
+| **Troubleshooting** | `assets/templates/troubleshooting_template.md` | Error resolution & incident log |
+| **ISO 25010** | `assets/templates/iso_25010_template.md` | Quality Metrics Dashboard |
+| **ISO 42010** | `assets/templates/iso_42010_template.md` | Architecture Specification |
+| **Map** | `assets/templates/map_template.md` | Semantic Map |
+| **Tasks** | `assets/templates/tasks_template.json` | Task JSON Definition |

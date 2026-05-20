@@ -159,32 +159,28 @@ bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id {task_id} --cmd "{valida
 
 ---
 
-## Documentation Hook
+## Documentation Hook & Fragment Architecture
 
-Once Verified, you MUST synchronize the project's ISO documentation:
+Once Verified, you MUST synchronize the project documentation.
+This project uses a **Fragment-Based Documentation Architecture** to optimize context and avoid modifying massive monolithic files.
 
-1. **Architecture**: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`
-2. **Quality**: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010`
+### Fragment Routing Rule (MANDATORY)
 
-**Output Files**:
-- `docs/architecture.md`
-- `docs/quality_metrics.md`
+> **CRITICAL**: You are STRICTLY FORBIDDEN from rewriting entire monolithic documents (like a single large `SRS.md` or `SDD.md`).
 
-### Fragment-Based Update Strategy
+1. **Locate Target via Index**: First, read `docs/index.md` to understand the documentation structure.
+2. **Find the Fragment**: Identify the specific sub-file that needs updating (e.g., `docs/requirements/auth_feature.md` or `docs/architecture/database.md`).
+3. **Surgical Update**: Modify ONLY that specific fragment file. Do not touch other fragments.
+4. **Update Index**: If you created a new fragment file, you MUST add a link to it in `docs/index.md`.
 
-> **IMPORTANT**: Do NOT regenerate entire documents when only a subset has changed.
+### Standard Rendering
+Some documents are still automatically rendered from tasks or maps:
+- **Architecture Diagram**: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010` (Generates `docs/architecture/system_architecture.md`)
+- **Quality Metrics**: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010` (Generates `docs/management/quality_metrics.md`)
+- **KANBAN**: Do NOT edit directly. Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render`.
+- **Human Readability**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document-build` to stitch fragments together for human review.
 
-When updating documentation:
-
-1. **Detect Changes**: Compare the current task's scope against existing document sections.
-2. **Surgical Update**: Modify only the sections/fragments affected by this task:
-   - If a new component was added → append to Components section only.
-   - If metrics changed → update the Metrics table rows only.
-   - If a dependency was added → update Dependency section only.
-3. **Preserve**: All sections not affected by this task MUST remain untouched.
-4. **SSOT Rendering**: For `KANBAN.md`, do NOT edit directly. Run `harness.sh kanban-render` to regenerate from `docs/tasks/*.json`.
-
-**Rationale**: Fragment-based updates reduce token cost, preserve manual annotations, and prevent merge conflicts in multi-agent scenarios.
+**Rationale**: Fragment-based routing reduces token cost, preserves manual annotations, and prevents merge conflicts in multi-agent scenarios.
 
 ---
 
