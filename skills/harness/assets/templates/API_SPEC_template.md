@@ -1,4 +1,4 @@
-# API & Interface Specification
+# API & Interface Specification (OpenAPI 3.0)
 
 > **Document ID**: API-{PROJECT_ID}-001
 > **Version**: 0.1.0 (Draft)
@@ -11,373 +11,382 @@
 
 ## Quick Start
 
-1. Define all public interfaces here — both external APIs and internal module contracts
-2. Every endpoint must include request/response examples (not just schemas)
-3. Error codes must be standardized across the project (Section 5)
-4. Sub-agent dispatch protocols (harness) are documented in Section 4
-5. Version changes require an ADR when breaking
+1. The OpenAPI specification below is the **machine-readable source of truth** for all public API contracts
+2. Use an OpenAPI viewer (e.g., Swagger UI, Redocly) to render the interactive documentation
+3. Every endpoint must include request/response examples within the spec
+4. Error codes are standardized in `components.schemas.ErrorResponse`
+5. Sub-agent dispatch protocols (harness-specific) are documented in [Section 2](#2-harness-sub-agent-communication-protocol)
+6. Version changes require an ADR when breaking
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#1-overview)
-2. [API Design Standards](#2-api-design-standards)
-3. [Endpoints / Public Interfaces](#3-endpoints--public-interfaces)
-4. [Internal Module Interfaces](#4-internal-module-interfaces)
-5. [Error Handling Contract](#5-error-handling-contract)
-6. [Authentication & Authorization](#6-authentication--authorization)
-7. [Rate Limiting & Throttling](#7-rate-limiting--throttling)
-8. [Versioning Policy](#8-versioning-policy)
-9. [Harness Sub-Agent Communication Protocol](#9-harness-sub-agent-communication-protocol)
-10. [Related Documents](#10-related-documents)
+1. [OpenAPI 3.0 Specification](#1-openapi-30-specification)
+2. [Harness Sub-Agent Communication Protocol](#2-harness-sub-agent-communication-protocol)
+3. [API Design Standards](#3-api-design-standards)
+4. [Related Documents](#4-related-documents)
 
 ---
 
-## 1. Overview
+## 1. OpenAPI 3.0 Specification
 
-### 1.1 Purpose
+> **Agent Parsing Rule**: The YAML block below is the canonical API spec. Parse it directly for endpoint discovery, schema validation, and code generation.
 
-This document defines all communication contracts for **{PROJECT_NAME}**: public APIs, internal module boundaries, sub-agent dispatch protocols, and error handling standards.
+```yaml
+openapi: 3.0.3
 
-### 1.2 Base URLs
+info:
+  title: "{PROJECT_NAME} API"
+  description: "API specification for {PROJECT_NAME}"
+  version: "0.1.0"
+  contact:
+    name: "{AUTHOR}"
+  license:
+    name: "MIT"
 
-| Environment | Base URL |
-|---|---|
-| Development | `http://localhost:{PORT}/api/v{N}` |
-| Staging | `https://staging.{DOMAIN}/api/v{N}` |
-| Production | `https://{DOMAIN}/api/v{N}` |
+servers:
+  - url: "http://localhost:{PORT}/api/v1"
+    description: "Development"
+  - url: "https://staging.{DOMAIN}/api/v1"
+    description: "Staging"
+  - url: "https://{DOMAIN}/api/v1"
+    description: "Production"
 
-### 1.3 Common Headers
+tags:
+  - name: "{Resource}"
+    description: "Operations on {resource} entities"
+  - name: "Health"
+    description: "System health and readiness checks"
 
-| Header | Required | Description | Example |
-|---|---|---|---|
-| `Content-Type` | Yes | Request body format | `application/json` |
-| `Accept` | Yes | Response format | `application/json` |
-| `Authorization` | Conditional | Auth token | `Bearer {token}` |
-| `X-Request-ID` | Recommended | Tracing correlation ID | `uuid-v4` |
-| `X-API-Version` | Optional | API version override | `2` |
+paths:
+  /health:
+    get:
+      tags: ["Health"]
+      summary: "Health check"
+      operationId: "getHealth"
+      responses:
+        "200":
+          description: "Service is healthy"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  version:
+                    type: string
+                    example: "0.1.0"
+                  uptime:
+                    type: number
+                    example: 3600
 
----
+  /{resources}:
+    get:
+      tags: ["{Resource}"]
+      summary: "List all {resources}"
+      operationId: "list{Resources}"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            default: "createdAt"
+      responses:
+        "200":
+          description: "Successful response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+      security:
+        - bearerAuth: []
 
-## 2. API Design Standards
+    post:
+      tags: ["{Resource}"]
+      summary: "Create a new {resource}"
+      operationId: "create{Resource}"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Create{Resource}Request"
+            example:
+              name: "Example {resource}"
+              description: "A sample {resource}"
+      responses:
+        "201":
+          description: "Created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      security:
+        - bearerAuth: []
 
-### 2.1 Naming Conventions
+  /{resources}/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
 
-| Aspect | Convention | Example |
-|---|---|---|
-| URL paths | lowercase, kebab-case, plural nouns | `/api/v1/user-profiles` |
-| Query params | camelCase | `?pageSize=20&sortBy=createdAt` |
-| Request body | camelCase | `{ "firstName": "John" }` |
-| Response body | camelCase | `{ "userId": "abc-123" }` |
+    get:
+      tags: ["{Resource}"]
+      summary: "Get {resource} by ID"
+      operationId: "get{Resource}ById"
+      responses:
+        "200":
+          description: "Successful response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      security:
+        - bearerAuth: []
 
-### 2.2 HTTP Methods
+    put:
+      tags: ["{Resource}"]
+      summary: "Update {resource}"
+      operationId: "update{Resource}"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Update{Resource}Request"
+      responses:
+        "200":
+          description: "Updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      security:
+        - bearerAuth: []
 
-| Method | Purpose | Idempotent | Request Body |
-|---|---|---|---|
-| `GET` | Retrieve resource(s) | Yes | No |
-| `POST` | Create resource | No | Yes |
-| `PUT` | Full update / replace | Yes | Yes |
-| `PATCH` | Partial update | No | Yes |
-| `DELETE` | Remove resource | Yes | No |
+    delete:
+      tags: ["{Resource}"]
+      summary: "Delete {resource}"
+      operationId: "delete{Resource}"
+      responses:
+        "204":
+          description: "Deleted successfully"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      security:
+        - bearerAuth: []
 
-### 2.3 Response Format Standard
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["success"]
+        data:
+          type: object
+        meta:
+          $ref: "#/components/schemas/Meta"
 
-```json
-// Success response
-{
-  "status": "success",
-  "data": { ... },
-  "meta": {
-    "page": 1,
-    "pageSize": 20,
-    "totalCount": 150
-  }
-}
+    PaginatedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["success"]
+        data:
+          type: array
+          items:
+            type: object
+        meta:
+          $ref: "#/components/schemas/Meta"
 
-// Error response
-{
-  "status": "error",
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Human-readable error description",
-    "details": [
-      {
-        "field": "email",
-        "message": "Invalid email format"
-      }
-    ]
-  }
-}
+    Meta:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [status, error]
+      properties:
+        status:
+          type: string
+          enum: ["error"]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: "Error code from the Error Code Registry"
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+                - SERVICE_UNAVAILABLE
+            message:
+              type: string
+              description: "Human-readable error message"
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+            traceId:
+              type: string
+              description: "X-Request-ID for debugging"
+
+    "Create{Resource}Request":
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+
+    "Update{Resource}Request":
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+
+  responses:
+    ValidationError:
+      description: "Request payload fails validation"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: "error"
+            error:
+              code: "VALIDATION_ERROR"
+              message: "name is required"
+              details:
+                - field: "name"
+                  message: "Cannot be empty"
+
+    Unauthorized:
+      description: "Missing or invalid auth token"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: "error"
+            error:
+              code: "UNAUTHORIZED"
+              message: "Invalid or expired token"
+
+    NotFound:
+      description: "Requested resource not found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: "error"
+            error:
+              code: "NOT_FOUND"
+              message: "Resource not found"
+
+    RateLimited:
+      description: "Too many requests"
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: "Seconds to wait before retrying"
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT token obtained via authentication endpoint"
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: "API key for service-to-service communication"
 ```
 
 ---
 
-## 3. Endpoints / Public Interfaces
+## 2. Harness Sub-Agent Communication Protocol
 
-### 3.1 Endpoint Template
-
-> Copy this block for each endpoint:
-
-#### `{METHOD} /api/v{N}/{resource}`
-
-| Attribute | Value |
-|---|---|
-| **Description** | {What this endpoint does} |
-| **Authentication** | {Required / Optional / None} |
-| **Authorization** | {Role required: Admin / User / Any} |
-| **Rate Limit** | {100 req/min per user / Unlimited} |
-| **SRS Requirement** | REQ-{MODULE}-{NNN} |
-
-**Request Parameters**:
-
-| Parameter | Location | Type | Required | Default | Description | Validation |
-|---|---|---|---|---|---|---|
-| `{param}` | {path / query / header} | {string / int / uuid} | {Yes / No} | {value / —} | {Description} | {min/max/pattern} |
-
-**Request Body** (if applicable):
-
-```json
-{
-  "field1": "string (required) — Description",
-  "field2": 42,
-  "nested": {
-    "field3": true
-  }
-}
-```
-
-**Response** — `200 OK`:
-
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "abc-123",
-    "field1": "value",
-    "createdAt": "2026-01-01T00:00:00Z"
-  }
-}
-```
-
-**Response** — `400 Bad Request`:
-
-```json
-{
-  "status": "error",
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "field1 is required",
-    "details": [{ "field": "field1", "message": "Cannot be empty" }]
-  }
-}
-```
-
-**Response** — `404 Not Found`:
-
-```json
-{
-  "status": "error",
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Resource with id 'xyz' not found"
-  }
-}
-```
-
----
-
-### 3.2 {Resource Name} Endpoints
-
-#### `GET /api/v1/{resources}`
-
-*(Use template from 3.1)*
-
-#### `POST /api/v1/{resources}`
-
-*(Use template from 3.1)*
-
-#### `GET /api/v1/{resources}/{id}`
-
-*(Use template from 3.1)*
-
-#### `PUT /api/v1/{resources}/{id}`
-
-*(Use template from 3.1)*
-
-#### `DELETE /api/v1/{resources}/{id}`
-
-*(Use template from 3.1)*
-
----
-
-## 4. Internal Module Interfaces
-
-### 4.1 Module Contract Template
-
-#### Interface: `{ModuleName}Service`
-
-| Attribute | Value |
-|---|---|
-| **Provider Module** | `{src/modules/provider}` |
-| **Consumer Module(s)** | `{src/modules/consumer1, consumer2}` |
-| **Communication** | {Direct import / Event bus / Message queue} |
-| **SDD Component** | [Component: {Name}](../specs/SDD.md#component-name) |
-
-**Methods**:
-
-```
-interface {ModuleName}Service {
-  /**
-   * {Description}
-   * @param {paramName} - {description}
-   * @returns {ReturnType} - {description}
-   * @throws {ErrorType} - {when this error occurs}
-   */
-  {methodName}({params}): {ReturnType};
-}
-```
-
-**Data Transfer Objects (DTOs)**:
-
-```
-interface {MethodName}Request {
-  field1: string;   // {description}
-  field2: number;   // {description, constraints}
-}
-
-interface {MethodName}Response {
-  id: string;       // {description}
-  status: string;   // {enum values}
-}
-```
-
----
-
-## 5. Error Handling Contract
-
-### 5.1 Error Code Registry
-
-| Code | HTTP Status | Description | Retry? | User Action |
-|---|---|---|---|---|
-| `VALIDATION_ERROR` | 400 | Request payload fails validation | No | Fix input |
-| `UNAUTHORIZED` | 401 | Missing or invalid auth token | No | Re-authenticate |
-| `FORBIDDEN` | 403 | Insufficient permissions | No | Contact admin |
-| `NOT_FOUND` | 404 | Requested resource doesn't exist | No | Verify ID |
-| `CONFLICT` | 409 | Resource state conflict (e.g., duplicate) | No | Resolve conflict |
-| `RATE_LIMITED` | 429 | Too many requests | Yes (after delay) | Wait and retry |
-| `INTERNAL_ERROR` | 500 | Unexpected server error | Yes (with backoff) | Report issue |
-| `SERVICE_UNAVAILABLE` | 503 | Dependency or service down | Yes (with backoff) | Wait and retry |
-
-### 5.2 Error Response Schema
-
-```json
-{
-  "status": "error",
-  "error": {
-    "code": "string (from Error Code Registry)",
-    "message": "string (human-readable, safe to display)",
-    "details": [
-      {
-        "field": "string (optional, for validation errors)",
-        "message": "string (field-specific error)"
-      }
-    ],
-    "traceId": "string (X-Request-ID for debugging)"
-  }
-}
-```
-
----
-
-## 6. Authentication & Authorization
-
-### 6.1 Authentication Flow
-
-```mermaid
-sequenceDiagram
-    actor Client
-    participant API as API Gateway
-    participant Auth as Auth Service
-
-    Client->>API: Request + Credentials
-    API->>Auth: Validate credentials
-    Auth-->>API: Token (JWT)
-    API-->>Client: 200 + Token
-
-    Client->>API: Request + Bearer Token
-    API->>Auth: Validate token
-    Auth-->>API: Claims (userId, roles)
-    API-->>Client: 200 + Resource
-```
-
-### 6.2 Token Specification
-
-| Attribute | Value |
-|---|---|
-| **Format** | {JWT / Opaque / API Key} |
-| **Algorithm** | {RS256 / HS256} |
-| **Expiry** | {1h / 24h} |
-| **Refresh** | {7d / 30d / None} |
-| **Claims** | `sub`, `roles`, `exp`, `iat` |
-
-### 6.3 Role-Based Access Control (RBAC)
-
-| Endpoint Pattern | Admin | Editor | Viewer | Anonymous |
-|---|---|---|---|---|
-| `GET /resources` | ✅ | ✅ | ✅ | ❌ |
-| `POST /resources` | ✅ | ✅ | ❌ | ❌ |
-| `PUT /resources/{id}` | ✅ | ✅ (own) | ❌ | ❌ |
-| `DELETE /resources/{id}` | ✅ | ❌ | ❌ | ❌ |
-
----
-
-## 7. Rate Limiting & Throttling
-
-| Tier | Limit | Window | Response on Exceed |
-|---|---|---|---|
-| Anonymous | {30 req} | {1 min} | 429 + `Retry-After: {N}s` |
-| Authenticated | {100 req} | {1 min} | 429 + `Retry-After: {N}s` |
-| Premium / Internal | {1000 req} | {1 min} | 429 + `Retry-After: {N}s` |
-
-**Rate Limit Headers**:
-
-| Header | Description |
-|---|---|
-| `X-RateLimit-Limit` | Max requests per window |
-| `X-RateLimit-Remaining` | Remaining requests in window |
-| `X-RateLimit-Reset` | Unix timestamp when window resets |
-
----
-
-## 8. Versioning Policy
-
-### 8.1 Versioning Strategy
-
-- **Method**: {URL path versioning (`/api/v1/`) / Header versioning / Query param}
-- **Current Version**: `v{N}`
-- **Deprecation Notice Period**: {3 months / 2 releases}
-
-### 8.2 Breaking Change Definition
-
-A change is considered **breaking** if it:
-- Removes or renames an existing endpoint, field, or parameter
-- Changes the type or format of an existing response field
-- Adds a new required request parameter
-- Changes the meaning of an existing error code
-- Requires an ADR: [ADR-{NNN}](../decisions/ADR-{NNN}.md)
-
-### 8.3 Version History
-
-| Version | Release Date | Status | Major Changes |
-|---|---|---|---|
-| v1 | {DATE} | Active | Initial release |
-
----
-
-## 9. Harness Sub-Agent Communication Protocol
-
-### 9.1 Task Dispatch Contract
+### 2.1 Task Dispatch Contract
 
 The harness dispatches tasks to sub-agents via task JSON files (`docs/tasks/{task_id}.json`):
 
@@ -390,7 +399,7 @@ The harness dispatches tasks to sub-agents via task JSON files (`docs/tasks/{tas
 | `mechanical_dod.expected_exit_code` | int | Expected result |
 | `depends_on` | string[] | Task IDs that must complete first |
 
-### 9.2 Sub-Agent Permissions Matrix
+### 2.2 Sub-Agent Permissions Matrix
 
 | Sub-Agent | Can Modify `src/` | Can Modify `tests/` | Can Modify `docs/` | Can Modify `.harness/` |
 |---|---|---|---|---|
@@ -398,7 +407,7 @@ The harness dispatches tasks to sub-agents via task JSON files (`docs/tasks/{tas
 | **Dev** (GREEN) | ✅ | ✅ | ❌ | ❌ |
 | **Doc** (DOCUMENT) | ❌ | ❌ | ✅ | ❌ |
 
-### 9.3 Telemetry Communication
+### 2.3 Telemetry Communication
 
 | Event | Producer | Consumer | Data |
 |---|---|---|---|
@@ -408,7 +417,54 @@ The harness dispatches tasks to sub-agents via task JSON files (`docs/tasks/{tas
 
 ---
 
-## 10. Related Documents
+## 3. API Design Standards
+
+### 3.1 Naming Conventions
+
+| Aspect | Convention | Example |
+|---|---|---|
+| URL paths | lowercase, kebab-case, plural nouns | `/api/v1/user-profiles` |
+| Query params | camelCase | `?pageSize=20&sortBy=createdAt` |
+| Request/Response body | camelCase | `{ "firstName": "John" }` |
+
+### 3.2 HTTP Methods
+
+| Method | Purpose | Idempotent | Request Body |
+|---|---|---|---|
+| `GET` | Retrieve resource(s) | Yes | No |
+| `POST` | Create resource | No | Yes |
+| `PUT` | Full update / replace | Yes | Yes |
+| `PATCH` | Partial update | No | Yes |
+| `DELETE` | Remove resource | Yes | No |
+
+### 3.3 Common Headers
+
+| Header | Required | Description |
+|---|---|---|
+| `Content-Type` | Yes | `application/json` |
+| `Accept` | Yes | `application/json` |
+| `Authorization` | Conditional | `Bearer {token}` |
+| `X-Request-ID` | Recommended | Tracing correlation ID (uuid-v4) |
+| `X-API-Version` | Optional | API version override |
+
+### 3.4 Versioning Policy
+
+- **Method**: URL path versioning (`/api/v1/`)
+- **Deprecation Notice Period**: 3 months / 2 releases
+- A change is **breaking** if it removes/renames endpoints, changes field types, or adds required parameters
+- Breaking changes require an [ADR](../decisions/ADR-001.md)
+
+### 3.5 Rate Limiting
+
+| Tier | Limit | Window |
+|---|---|---|
+| Anonymous | 30 req | 1 min |
+| Authenticated | 100 req | 1 min |
+| Internal | 1000 req | 1 min |
+
+---
+
+## 4. Related Documents
 
 | Document | Path | Relationship |
 |---|---|---|
