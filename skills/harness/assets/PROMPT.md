@@ -43,7 +43,7 @@ When generating or updating `docs/map.md`, you MUST use AST-based indexing tools
 
 2. **Synchronization Rule**: After any code change that adds, removes, or renames a public symbol (function, class, interface, type, constant), you MUST regenerate `docs/map.md` using the AST tool.
    * Note: Since direct shell execution is restricted, use the approved harness command:
-     `bash [PATH]/harness.sh ast --update` (or specify the valid wrapper command here).
+     `[PATH]/harness.sh ast --update` (or specify the valid wrapper command here).
 
 3. **Fallback**: If no AST tool is available, manually inspect changed files and update `map.md` with accurate symbol locations. Mark the entry with `[manual]` tag.
 
@@ -92,6 +92,7 @@ When generating or updating `docs/map.md`, you MUST use AST-based indexing tools
 - **RED PHASE**: If `task_id` ends in `-RED`, you are STRICTLY FORBIDDEN from modifying production files. You may only edit files in `tests/` or equivalent.
 - Do NOT touch `.harness/` or `.git/` directories.
 - Do NOT copy `harness.sh` to the local project directory. Always execute it from the skill workspace using its absolute path.
+- **Execution Permissions**: Prior to executing the script or configuring the environment, you MUST grant execution permissions to the shell script using `chmod +x` (e.g., `chmod +x [ABSOLUTE_SKILL_PATH]/scripts/harness.sh`) to prevent `Permission denied` errors.
 - **DOCUMENT PHASE**: During `[DOCUMENT]`, you are STRICTLY FORBIDDEN from modifying production or test code. You may ONLY update files in `docs/`.
 
 ### Log Masking (Mandatory PII/Secrets Redaction)
@@ -118,8 +119,8 @@ You MUST use the harness CLI to run tests and lock the telemetry hash.
 
 | Task Type | Command |
 |---|---|
-| `*-RED` tasks | `bash [PATH]/harness.sh test --mode tdd-red --id {task_id} --cmd "{cmd}"` |
-| `*-GREEN` tasks | `bash [PATH]/harness.sh test --id {task_id} --cmd "{cmd}"` |
+| `*-RED` tasks | `[PATH]/harness.sh test --mode tdd-red --id {task_id} --cmd "{cmd}"` |
+| `*-GREEN` tasks | `[PATH]/harness.sh test --id {task_id} --cmd "{cmd}"` |
 
 > **CRITICAL**: Standard mode requires **MANDATORY Line Coverage >= 80%**.
 > You MUST use a coverage tool (e.g., `c8`, `nyc`) with your test runner.
@@ -134,7 +135,7 @@ When `--mutation` is enabled, the harness additionally validates **qualitative**
 | Mutation Score | >= 60% | Adapter-specific (default: Stryker) |
 
 ```bash
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id {task_id} --cmd "{cmd}" --mutation
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id {task_id} --cmd "{cmd}" --mutation
 ```
 
 ### Integrity Violations
@@ -150,7 +151,7 @@ Never overwrite or modify an existing `AGENTS.md` unless the user's prompt conta
 ### Verification Command
 
 ```bash
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id {task_id} --cmd "{validation_command}"
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id {task_id} --cmd "{validation_command}"
 ```
 
 ### Telemetry Check
@@ -180,10 +181,10 @@ This project uses a **Fragment-Based Documentation Architecture** to optimize co
 
 ### Standard Rendering
 Some documents are still automatically rendered from tasks or maps:
-- **Architecture Diagram**: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010` (Generates `docs/architecture/system_architecture.md`)
-- **Quality Metrics**: `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010` (Generates `docs/management/quality_metrics.md`)
-- **KANBAN**: Do NOT edit directly. Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render`.
-- **Human Readability**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document-build` to stitch fragments together for human review.
+- **Architecture Diagram**: `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010` (Generates `docs/architecture/system_architecture.md`)
+- **Quality Metrics**: `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010` (Generates `docs/management/quality_metrics.md`)
+- **KANBAN**: Do NOT edit directly. Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render`.
+- **Human Readability**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document-build` to stitch fragments together for human review.
 
 **Rationale**: Fragment-based routing reduces token cost, preserves manual annotations, and prevents merge conflicts in multi-agent scenarios.
 
@@ -243,5 +244,5 @@ Do NOT output your reasoning or code directly as plain text in the chat. You MUS
 
 1. **<step 1>** Use your file-writing tool to create/update `docs/cycle_logs/{task_id}_log.md` with your Intent, Analysis, Plan, and Failure Modes.
 2. **<step 2>** Use your file-editing tool to implement the required code changes in the target files.
-3. **<step 3>** Use your shell execution tool to run the validation command: `bash [PATH]/harness.sh test --id {task_id} --cmd "..."`
+3. **<step 3>** Use your shell execution tool to run the validation command: `[PATH]/harness.sh test --id {task_id} --cmd "..."`
 4. **<step 4>** Evaluate the output. If it fails, reflect using `<failure_context>` and repeat. If it passes, proceed to the DOCUMENT phase.

@@ -12,6 +12,17 @@ metadata:
 
 The `harness` skill transforms the repository into a self-regulating "hardware harness" for AI agents. It prioritizes the **Repository as the System of Record (SOR)** and enforces governance through **Mechanical Invariants** and **Automated Steering via Git Hooks**.
 
+## Environment Setup & Permissions
+
+Before running the harness script, execution permissions must be granted to the file to prevent `Permission denied` errors.
+
+> [!IMPORTANT]
+> **Execution Permission Required**
+> Prior to executing the script or configuring the environment, you MUST grant execution permission to the shell script using `chmod +x`:
+> ```bash
+> chmod +x [ABSOLUTE_SKILL_PATH]/scripts/harness.sh
+> ```
+
 ## Sub-Agent Workflow
 
 Tasks can be delegated to specialized sub-agents via the `assigned_sub_agent` field in task JSON:
@@ -37,7 +48,7 @@ Control the level of human oversight with `--level`:
 
 ```bash
 # Example: Run fully autonomous pipeline
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 4
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 4
 ```
 
 ## CI/Headless Mode
@@ -46,10 +57,10 @@ For CI/CD pipeline integration, use `--ci` to disable all interactive prompts:
 
 ```bash
 # Run pipeline in CI mode (no user prompts)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3 --ci
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3 --ci
 
 # CI approval with token
-HARNESS_CI_TOKEN="your-token" bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh approve --id TASK-001 --ci
+HARNESS_CI_TOKEN="your-token" [ABSOLUTE_SKILL_PATH]/scripts/harness.sh approve --id TASK-001 --ci
 ```
 
 In CI mode:
@@ -95,10 +106,10 @@ Beyond quantitative coverage (80% line coverage), use mutation testing for quali
 
 ```bash
 # Standard test + mutation testing
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation
 
 # Custom mutation threshold (default: 60%)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation --mutation-threshold 70
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation --mutation-threshold 70
 ```
 
 Mutation score is recorded in `metrics.mutation_score` in the task JSON.
@@ -142,56 +153,56 @@ After 3 failed attempts, emit `<human_handoff reason="..."/>` and STOP.
 1. **[PROPOSE]**: Define task in `docs/tasks/[task_id].json`.
 2. **[REASON]**: Write reasoning to `docs/cycle_logs/[task_id]_log.md`.
 3. **[ACT]**: Implement changes and tests.
-4. **[VERIFY]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "[command]"`.
-5. **[DOCUMENT]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`.
+4. **[VERIFY]**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "[command]"`.
+5. **[DOCUMENT]**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`.
    - Use **fragment-based updates** — do not rewrite monolithic documents. Read `docs/index.md` first, route to the correct fragmented file (e.g., `docs/requirements/auth.md`), and apply surgical updates.
-   - For KANBAN: Run `harness.sh kanban-render` (SSOT, do not edit directly).
-   - For Human Review: Run `harness.sh document-build` to stitch fragments together.
-6. **[CLOSE]**: Run `bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id [task_id] --msg "[message]"`.
+   - For KANBAN: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render` (SSOT, do not edit directly).
+   - For Human Review: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document-build` to stitch fragments together.
+6. **[CLOSE]**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id [task_id] --msg "[message]"`.
 
 ## Usage Examples
 
 ```bash
 # Full pipeline with interactive approval gates
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3
 
 # Full pipeline in CI mode (no prompts)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3 --ci
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 3 --ci
 
 # TDD Red phase verification
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --mode tdd-red --id TASK-001-RED --cmd "c8 node --test test.js"
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --mode tdd-red --id TASK-001-RED --cmd "c8 node --test test.js"
 
 # Standard verification with mutation testing
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation
 
 # Kotlin/KMP project
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "./gradlew test" --adapter kmp
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "./gradlew test" --adapter kmp
 
 # Generate ISO documentation
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010
 
 # Commit with coverage validation
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id TASK-001 --msg "feat: add validation"
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id TASK-001 --msg "feat: add validation"
 
 # Scaffold all documentation templates
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init
 
 # Scaffold essential templates only (SRS, SDD, KANBAN, WBS)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init --lite
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init --lite
 
 # Scaffold specific template
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init --template WBS
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init --template WBS
 
 # Render Kanban board from task data (SSOT)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render
 
 # Archive old completed tasks (default: 7 days)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive --archive-days 14
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive --archive-days 14
 
 # Generate prompt (Level 2)
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 2
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 2
 ```
 
 ## Guardrails & Security
@@ -232,10 +243,10 @@ To prevent file accumulation, the harness includes automatic archival:
 
 ```bash
 # Archive tasks completed > 7 days ago
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive
 
 # Custom retention period
-bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive --archive-days 14
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh archive --archive-days 14
 ```
 
 - **Scope**: Approved tasks in `docs/tasks/` and corresponding telemetry in `.harness/telemetry/`
