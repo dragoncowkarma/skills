@@ -514,7 +514,7 @@ generate_prompt() {
   fi
 
   local template
-  template=$(cat "${ASSETS_DIR}/PROMPT.xml")
+  template=$(cat "${ASSETS_DIR}/PROMPT.md")
 
   # Substitute placeholders from task JSON
   local t_target t_role t_priority
@@ -662,6 +662,87 @@ LOGEOF
   return 1
 }
 
+# ===== DOCS INIT =====
+docs_init() {
+  local template_filter="${1:-all}"
+  local templates_dir="${ASSETS_DIR}/templates"
+
+  if [[ ! -d "$templates_dir" ]]; then
+    echo "❌ Templates directory not found: ${templates_dir}"
+    return 1
+  fi
+
+  echo "📄 Scaffolding documentation structure..."
+
+  # Template definitions: KEY:target_dir:src_file:dest_file
+  local entries=(
+    "SRS:docs/specs:SRS_template.md:SRS.md"
+    "SDD:docs/specs:SDD_template.md:SDD.md"
+    "SCS:docs/specs:SCS_template.md:SCS.md"
+    "KANBAN:docs/agile:KANBAN_template.md:KANBAN.md"
+    "SCRUM:docs/agile:SCRUM_template.md:SCRUM.md"
+    "ADR:docs/decisions:ADR_template.md:ADR-001.md"
+    "STD:docs/testing:STD_template.md:STD.md"
+    "STR:docs/testing:STR_template.md:STR.md"
+    "API_SPEC:docs/api:API_SPEC_template.md:API_SPEC.md"
+    "TROUBLESHOOTING:docs/troubleshooting:TROUBLESHOOTING_template.md:TROUBLESHOOTING.md"
+  )
+
+  local project_name
+  project_name=$(basename "$(pwd)")
+  local today
+  today=$(date -u +"%Y-%m-%d")
+
+  local count=0
+
+  local entry
+  for entry in "${entries[@]}"; do
+    local key target_dir src_file dest_file
+    key=$(echo "$entry" | cut -d: -f1)
+    target_dir=$(echo "$entry" | cut -d: -f2)
+    src_file=$(echo "$entry" | cut -d: -f3)
+    dest_file=$(echo "$entry" | cut -d: -f4)
+
+    # Filter if specific template requested
+    if [[ "$template_filter" != "all" ]] && [[ "$template_filter" != "$key" ]]; then
+      continue
+    fi
+
+    local src_path="${templates_dir}/${src_file}"
+    local dest_path="${target_dir}/${dest_file}"
+
+    if [[ ! -f "$src_path" ]]; then
+      echo "⚠️ Template not found: ${src_path}"
+      continue
+    fi
+
+    if [[ -f "$dest_path" ]]; then
+      echo "⏭️  Skipping (exists): ${dest_path}"
+      continue
+    fi
+
+    mkdir -p "$target_dir"
+
+    # Copy and substitute basic placeholders
+    sed -e "s|{PROJECT_NAME}|${project_name}|g" \
+        -e "s|{PROJECT_ID}|${project_name}|g" \
+        -e "s|{DATE}|${today}|g" \
+        -e "s|{AUTHOR}|Harness Protocol|g" \
+        "$src_path" > "$dest_path"
+
+    echo "✅ Created: ${dest_path}"
+    count=$(( count + 1 ))
+  done
+
+  # Also ensure core harness directories exist
+  mkdir -p docs/tasks docs/cycle_logs docs/prompts
+
+  echo ""
+  echo "📋 Documentation scaffold complete: ${count} file(s) created."
+  echo "   Core directories: docs/specs/, docs/agile/, docs/decisions/, docs/testing/, docs/api/, docs/troubleshooting/"
+  echo "   Harness directories: docs/tasks/, docs/cycle_logs/, docs/prompts/"
+}
+
 # ===== HELP =====
 show_help() {
   cat <<'HELPEOF'
@@ -674,6 +755,7 @@ Commands:
   run         Execute full pipeline with autonomy level
   approve     Human-only task approval
   document    Generate ISO documentation
+  docs-init   Scaffold documentation templates into project
   commit      Verified commit with integrity check
   check       Pre-commit integrity check
   prompt      Generate prompt from template
@@ -685,6 +767,7 @@ Options:
   --mode <mode>        Test mode: standard | tdd-red
   --level <1-4>        Autonomy level (default: 3)
   --standard <std>     ISO standard: ISO_42010 | ISO_25010
+  --template <name>    Template to scaffold: SRS | SDD | SCS | KANBAN | SCRUM | ADR | STD | STR | API_SPEC | TROUBLESHOOTING
   --msg <message>      Commit message
 
 Autonomy Levels:
@@ -697,6 +780,8 @@ Examples:
   harness.sh test --id TASK-001 --cmd "c8 node --test test.js"
   harness.sh run --id TASK-001 --level 4
   harness.sh document --standard ISO_42010
+  harness.sh docs-init
+  harness.sh docs-init --template SRS
   harness.sh commit --id TASK-001 --msg "feat: add validation"
 
 HELPEOF
@@ -722,7 +807,7 @@ main() {
   shift
 
   # Parse global flags
-  local task_id="" command="" mode="standard" standard="ISO_25010" msg=""
+  local task_id="" command="" mode="standard" standard="ISO_25010" msg="" template="all"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -731,6 +816,7 @@ main() {
       --mode)     mode="$2"; shift 2 ;;
       --level)    AUTONOMY_LEVEL="$2"; shift 2 ;;
       --standard) standard="$2"; shift 2 ;;
+      --template) template="$2"; shift 2 ;;
       --msg)      msg="$2"; shift 2 ;;
       --help|-h)  show_help; exit 0 ;;
       *)          echo "❌ Unknown option: $1"; show_help; exit 1 ;;
@@ -763,6 +849,9 @@ main() {
       ;;
     check)
       pre_commit_check
+      ;;
+    docs-init)
+      docs_init "$template"
       ;;
     prompt)
       [[ -z "$task_id" ]] && { echo "❌ --id required"; exit 1; }

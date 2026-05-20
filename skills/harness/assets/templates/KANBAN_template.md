@@ -1,0 +1,153 @@
+# Kanban Board — Task Tracking
+
+> **Project**: {PROJECT_NAME}
+> **Last Updated**: {DATE}
+> **Board Owner**: {OWNER}
+
+---
+
+## Quick Start
+
+1. Every task MUST have a unique ID matching `docs/tasks/{task_id}.json`
+2. WIP limits are hard limits — do NOT exceed them without escalation
+3. Move cards left-to-right only (no skipping columns)
+4. Blocked tasks move to the Blocked lane with a reason tag
+
+---
+
+## Board Configuration
+
+### Column Definitions
+
+| Column | Purpose | Entry Criteria | Exit Criteria | WIP Limit |
+|---|---|---|---|---|
+| **Backlog** | Unrefined work items | Identified need or requirement | Refined with acceptance criteria | No limit |
+| **Ready** | Refined, estimated, and prioritized | SRS requirement linked, acceptance criteria defined | Assigned to agent/developer | 10 |
+| **In Progress** | Active development (RED/GREEN cycle) | Cycle log initialized, harness task JSON created | Tests pass, coverage ≥ 80% (harness verified) | **3** |
+| **Review** | Code review / QA validation | Harness status = `Verified`, PR opened | Approved by reviewer, no blocking comments | **3** |
+| **Done** | Completed and merged | Harness status = `Approved`, committed | Deployed to target environment | No limit |
+| **Blocked** | Impediments preventing progress | Blocker identified and tagged | Blocker resolved, return to previous column | No limit |
+
+### WIP Limit Escalation Policy
+
+> When a column reaches its WIP limit:
+> 1. **Stop Starting, Start Finishing**: No new tasks enter the column until one exits
+> 2. **Swarm**: Team members without WIP-limited tasks help finish blocked items
+> 3. **Escalate**: If blocked for > 24h, escalate to {ESCALATION_CONTACT}
+> 4. **Log**: Record the bottleneck in [Troubleshooting Log](../troubleshooting/TROUBLESHOOTING.md)
+
+### Priority Lanes
+
+| Lane | Criteria | Max Items | SLA |
+|---|---|---|---|
+| **Expedite** | Production hotfix, P0 defect | 1 | Resolved within 4h |
+| **Standard** | Normal priority work | Per WIP limits | Per sprint cadence |
+| **Low Priority** | Nice-to-have, tech debt | 2 | Best effort |
+
+---
+
+## Board State
+
+### Backlog
+
+| Task ID | Title | Priority | SRS Req | Assignee | Age (days) |
+|---|---|---|---|---|---|
+| {TASK-XXX} | {Description} | {P0/P1/P2/P3} | {REQ-XXX-NNN} | — | {N} |
+
+### Ready
+
+| Task ID | Title | Priority | Assignee | Estimated Size | Waiting Since |
+|---|---|---|---|---|---|
+| {TASK-XXX} | {Description} | {P0} | {Agent/Dev} | {S/M/L/XL} | {DATE} |
+
+### In Progress (WIP: 0 / 3)
+
+| Task ID | Title | Agent/Dev | Phase | Cycle Log | Started | Elapsed |
+|---|---|---|---|---|---|---|
+| {TASK-XXX} | {Description} | {antigravity/jules/dev} | {RED/GREEN/DOC} | [Log](docs/cycle_logs/{task_id}_log.md) | {DATE} | {Nh} |
+
+### Review (WIP: 0 / 3)
+
+| Task ID | Title | Reviewer | Coverage | Harness Status | PR Link | Review Started |
+|---|---|---|---|---|---|---|
+| {TASK-XXX} | {Description} | {Reviewer} | {85%} | Verified | {PR link} | {DATE} |
+
+### Done (This Sprint/Period)
+
+| Task ID | Title | Completed | Cycle Time | Retries | Coverage |
+|---|---|---|---|---|---|
+| {TASK-XXX} | {Description} | {DATE} | {Nd Nh} | {N} | {N%} |
+
+### Blocked
+
+| Task ID | Title | Blocked Since | Blocker Type | Blocker Description | Escalated? |
+|---|---|---|---|---|---|
+| {TASK-XXX} | {Description} | {DATE} | {Dependency / External / Technical / Decision} | {What is blocking} | {Yes/No} |
+
+---
+
+## Metrics & Analytics
+
+### Cycle Time Tracking
+
+| Period | Avg Cycle Time | Median | P90 | Throughput (tasks/week) |
+|---|---|---|---|---|
+| {Week/Sprint N} | {Nd Nh} | {Nd Nh} | {Nd Nh} | {N} |
+
+### Cumulative Flow Diagram Data
+
+| Date | Backlog | Ready | In Progress | Review | Done | Blocked |
+|---|---|---|---|---|---|---|
+| {DATE} | {N} | {N} | {N} | {N} | {N} | {N} |
+
+### Bottleneck Analysis
+
+| Date | Column | WIP at Limit? | Duration | Root Cause | Action Taken |
+|---|---|---|---|---|---|
+| {DATE} | {In Progress} | {Yes} | {8h} | {Agent retry loop} | {Manual intervention} |
+
+---
+
+## Harness Integration
+
+The Kanban board state synchronizes with harness telemetry:
+
+| Harness Status | Kanban Column |
+|---|---|
+| `Ready` | Ready |
+| Task JSON created + cycle log initialized | In Progress |
+| `Verified` | Review |
+| `Approved` | Done |
+| `Failed` (retry_count < 3) | In Progress (retry) |
+| `Failed` (retry_count >= 3) | Blocked |
+
+---
+
+## Board Policies
+
+### Definition of Ready (DoR)
+
+- [ ] SRS requirement identified and linked
+- [ ] Acceptance criteria written (GIVEN/WHEN/THEN)
+- [ ] Dependencies identified and resolved or tracked
+- [ ] Size estimated (S/M/L/XL)
+- [ ] Target agent or developer assigned
+
+### Definition of Done (DoD)
+
+- [ ] All acceptance criteria pass
+- [ ] Harness verification: status = `Verified`, coverage ≥ 80%
+- [ ] Cycle log completed with reasoning documentation
+- [ ] ISO documentation synchronized (`harness.sh document`)
+- [ ] Code reviewed and approved
+- [ ] No known regressions introduced
+
+---
+
+## Related Documents
+
+| Document | Path | Relationship |
+|---|---|---|
+| Scrum Sprint Tracking | `docs/agile/SCRUM.md` | Sprint-level planning and velocity |
+| Task Registry | `docs/tasks/*.json` | Harness task state (source of truth) |
+| Troubleshooting Log | `docs/troubleshooting/TROUBLESHOOTING.md` | Blocker resolution history |

@@ -31,7 +31,7 @@ Control the level of human oversight with `--level`:
 | Level | Name | Behavior |
 |-------|------|----------|
 | 1 | **Planning** | Generate `docs/` structure and cycle log template only, then exit. |
-| 2 | **Prompting** | Generate prompt text from `PROMPT.xml`, print to stdout, then exit. |
+| 2 | **Prompting** | Generate prompt text from `PROMPT.md`, print to stdout, then exit. |
 | 3 | **Interactive** | Execute RED→GREEN→DOC loop, pause after each phase for user approval. **(Default)** |
 | 4 | **Autonomous** | Full auto loop with sub-agent delegation, no pauses. Timeout extended to 120s. |
 
@@ -109,6 +109,12 @@ bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010
 # Commit with coverage validation
 bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id TASK-001 --msg "feat: add validation"
 
+# Scaffold documentation structure in target project
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init
+
+# Scaffold specific template only
+bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh docs-init --template SRS
+
 # Generate prompt only (Level 2)
 bash [ABSOLUTE_SKILL_PATH]/scripts/harness.sh run --id TASK-001 --level 2
 ```
@@ -143,8 +149,25 @@ A directory-based registry where each task has its own JSON file.
 ### 2. Automated Semantic Map (`docs/map.md`)
 An auto-generated index of all functions, classes, and domain boundaries.
 
-### 3. XML ACI Prompts (`docs/prompts/`)
-All tasks must use the `PROMPT.xml` template.
+### 3. Prompt Template (`assets/PROMPT.md`)
+All tasks must use the `PROMPT.md` template for ACI prompt generation.
 
 ### 4. Cycle Logs (`docs/cycle_logs/`)
 Mandatory reasoning logs that document agent decision-making before each code change.
+
+## Documentation Templates
+
+The harness provides a complete set of software engineering and agile document templates. Use `harness.sh docs-init` to scaffold these into a target project.
+
+| Template | File | Purpose |
+|---|---|---|
+| **SRS** | `assets/templates/SRS_template.md` | Software Requirements Specification |
+| **SDD** | `assets/templates/SDD_template.md` | Software Design Document |
+| **SCS** | `assets/templates/SCS_template.md` | Software Configuration Specification |
+| **Kanban** | `assets/templates/KANBAN_template.md` | Task tracking with WIP limits |
+| **Scrum** | `assets/templates/SCRUM_template.md` | Sprint & daily progress tracking |
+| **ADR** | `assets/templates/ADR_template.md` | Architecture Decision Record |
+| **STD** | `assets/templates/STD_template.md` | Software Test Design (TDD-aligned) |
+| **STR** | `assets/templates/STR_template.md` | Software Test Report (telemetry-integrated) |
+| **API Spec** | `assets/templates/API_SPEC_template.md` | API & Interface Specification |
+| **Troubleshooting** | `assets/templates/TROUBLESHOOTING_template.md` | Error resolution & incident log |
