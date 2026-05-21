@@ -1,4 +1,4 @@
-# ISO/IEC 25010 Quality Metrics Report
+# Quality Metrics Dashboard
 
 ## 1. Quality Model Overview
 This report tracks system quality based on automated telemetry data.

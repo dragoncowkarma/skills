@@ -523,8 +523,8 @@ document() {
   local standard="$1"
   echo "📄 Generating Documentation for Standard: ${standard}..."
 
-  if [[ "$standard" == "ISO_42010" ]]; then
-    local template_path="${ASSETS_DIR}/templates/iso_42010_template.md"
+  if [[ "$standard" == "SYSTEM_ARCHITECTURE" ]] || [[ "$standard" == "ISO_42010" ]]; then
+    local template_path="${ASSETS_DIR}/templates/system_architecture_template.md"
     local output_path="docs/architecture/system_architecture.md"
 
     if [[ ! -f "$MAP_PATH" ]]; then
@@ -563,15 +563,19 @@ document() {
     local template
     template=$(cat "$template_path")
 
-    # Replace placeholders using awk for safety with special characters
-    echo "$template" | awk -v diagram="$mermaid_block" -v details="$component_lines" \
-      '{gsub(/\{mermaid_diagram\}/, diagram); gsub(/\{component_details\}/, details); print}' \
-      > "$output_path"
+    # Replace placeholders using environment variables to support multi-line values safely
+    export MERMAID_DIAGRAM="$mermaid_block"
+    export COMPONENT_DETAILS="$component_lines"
+    echo "$template" | awk '
+      /\{mermaid_diagram\}/ { print ENVIRON["MERMAID_DIAGRAM"]; next }
+      /\{component_details\}/ { printf "%s", ENVIRON["COMPONENT_DETAILS"]; next }
+      { print }
+    ' > "$output_path"
 
     echo "✅ Architecture Specification updated: ${output_path}"
 
-  elif [[ "$standard" == "ISO_25010" ]]; then
-    local template_path="${ASSETS_DIR}/templates/iso_25010_template.md"
+  elif [[ "$standard" == "QUALITY_METRICS" ]] || [[ "$standard" == "ISO_25010" ]]; then
+    local template_path="${ASSETS_DIR}/templates/quality_metrics_template.md"
     local output_path="docs/management/quality_metrics.md"
 
     # Check for task files
@@ -634,18 +638,33 @@ document() {
     estimated_cost=$(awk "BEGIN {printf \"%.4f\", ($total_tokens / 1000) * 0.003}")
 
     mkdir -p docs
-    sed -e "s|{avg_coverage}|${avg_coverage}|g" \
-        -e "s|{total_tasks}|${total_tasks}|g" \
-        -e "s|{retry_rate}|${retry_rate}|g" \
-        -e "s|{success_rate}|${success_rate}|g" \
-        -e "s|{avg_duration}|${avg_duration}|g" \
-        -e "s|{total_tokens}|${total_tokens}|g" \
-        -e "s|{estimated_cost}|${estimated_cost}|g" \
-        -e "/{task_rows}/c\\
-${task_rows}" \
-        -e "/{token_dashboard}/c\\
-${token_rows}" \
-        "$template_path" > "$output_path"
+    export AVG_COVERAGE="${avg_coverage}"
+    export TOTAL_TASKS="${total_tasks}"
+    export RETRY_RATE="${retry_rate}"
+    export SUCCESS_RATE="${success_rate}"
+    export AVG_DURATION="${avg_duration}"
+    export TOTAL_TOKENS="${total_tokens}"
+    export ESTIMATED_COST="${estimated_cost}"
+    export TASK_ROWS="${task_rows}"
+    export TOKEN_DASHBOARD="${token_rows}"
+
+    local template
+    template=$(cat "$template_path")
+
+    echo "$template" | awk '
+      /\{task_rows\}/ { printf "%s", ENVIRON["TASK_ROWS"]; next }
+      /\{token_dashboard\}/ { printf "%s", ENVIRON["TOKEN_DASHBOARD"]; next }
+      {
+        gsub(/\{avg_coverage\}/, ENVIRON["AVG_COVERAGE"]);
+        gsub(/\{total_tasks\}/, ENVIRON["TOTAL_TASKS"]);
+        gsub(/\{retry_rate\}/, ENVIRON["RETRY_RATE"]);
+        gsub(/\{success_rate\}/, ENVIRON["SUCCESS_RATE"]);
+        gsub(/\{avg_duration\}/, ENVIRON["AVG_DURATION"]);
+        gsub(/\{total_tokens\}/, ENVIRON["TOTAL_TOKENS"]);
+        gsub(/\{estimated_cost\}/, ENVIRON["ESTIMATED_COST"]);
+        print
+      }
+    ' > "$output_path"
 
     echo "✅ Quality Metrics updated: ${output_path}"
   else
@@ -744,7 +763,7 @@ generate_prompt() {
   # Substitute placeholders from task JSON
   local t_target t_role t_priority
   t_target=$(jq -r '.target_file // "N/A"' "$task_file")
-  t_role=$(jq -r '.assigned_sub_agent // "Dev"' "$task_file")
+  t_role=$(jq -r '.assigned_sub_agent // "DEV"' "$task_file")
   t_priority=$(jq -r '.priority // "Medium"' "$task_file")
 
   # Build failure context for retry (self-reflection)
@@ -903,7 +922,7 @@ ${ready_rows:-| *(empty)* | — | — |}
 
 ### In Progress (WIP: ${wip_inprogress} / 3)
 
-| Task ID | Description | Agent/Dev | Retries |
+| Task ID | Description | Agent/DEV | Retries |
 |---|---|---|---|
 ${inprogress_rows:-| *(empty)* | — | — | — |}
 
@@ -1020,9 +1039,10 @@ LOGEOF
       return 1
     fi
 
-    # Determine phase from task ID
+    # Determine phase from task ID and assign sub-agent role
     if [[ "$task_id" == *-RED* ]]; then
       echo "--- RED PHASE ---"
+      jq '.assigned_sub_agent = "QA"' "$task_file" > "${task_file}.tmp" && mv "${task_file}.tmp" "$task_file"
       run_test "$task_id" "$cmd" "tdd-red" || return 1
       echo ""
       if [[ "$CI_MODE" == "true" ]]; then
@@ -1033,6 +1053,7 @@ LOGEOF
       fi
     else
       echo "--- GREEN PHASE ---"
+      jq '.assigned_sub_agent = "DEV"' "$task_file" > "${task_file}.tmp" && mv "${task_file}.tmp" "$task_file"
       run_test "$task_id" "$cmd" "standard" || return 1
       echo ""
       if [[ "$CI_MODE" == "true" ]]; then
@@ -1045,8 +1066,9 @@ LOGEOF
 
     # DOC phase
     echo "--- DOC PHASE ---"
-    document "ISO_42010"
-    document "ISO_25010"
+    jq '.assigned_sub_agent = "DOC"' "$task_file" > "${task_file}.tmp" && mv "${task_file}.tmp" "$task_file"
+    document "SYSTEM_ARCHITECTURE"
+    document "QUALITY_METRICS"
     echo ""
     if [[ "$CI_MODE" == "true" ]]; then
       echo "🤖 CI Mode: Auto-completing pipeline."
@@ -1068,6 +1090,15 @@ LOGEOF
       return 1
     fi
 
+    # Determine mode & assign sub-agent role
+    local mode="standard"
+    if [[ "$task_id" == *-RED* ]]; then
+      mode="tdd-red"
+      jq '.assigned_sub_agent = "QA"' "$task_file" > "${task_file}.tmp" && mv "${task_file}.tmp" "$task_file"
+    else
+      jq '.assigned_sub_agent = "DEV"' "$task_file" > "${task_file}.tmp" && mv "${task_file}.tmp" "$task_file"
+    fi
+
     local sub_agent
     sub_agent=$(jq -r '.assigned_sub_agent // ""' "$task_file")
     if [[ -n "$sub_agent" && "$sub_agent" != "null" ]]; then
@@ -1078,14 +1109,13 @@ LOGEOF
     jq '.sub_task_status = "InProgress"' "$task_file" > "${task_file}.tmp" \
       && mv "${task_file}.tmp" "$task_file"
 
-    # Determine mode
-    local mode="standard"
-    [[ "$task_id" == *-RED* ]] && mode="tdd-red"
-
     if run_test "$task_id" "$cmd" "$mode"; then
+      # DOC phase: update assigned_sub_agent to DOC
+      jq '.assigned_sub_agent = "DOC"' "$task_file" > "${task_file}.tmp" && mv "${task_file}.tmp" "$task_file"
+      
       # Auto-document
-      document "ISO_42010"
-      document "ISO_25010"
+      document "SYSTEM_ARCHITECTURE"
+      document "QUALITY_METRICS"
 
       # Mark completed
       jq '.sub_task_status = "Completed"' "$task_file" > "${task_file}.tmp" \
@@ -1283,7 +1313,7 @@ Commands:
   test          Run test with telemetry locking
   run           Execute full pipeline with autonomy level
   approve       Human-only task approval (CI: token-based)
-  document      Generate ISO documentation
+  document      Generate standard documentation
   document-build Build fragmented docs into a single file
   docs-init     Scaffold documentation templates into project
   commit        Verified commit with integrity check
@@ -1298,7 +1328,7 @@ Options:
   --cmd <command>      Test command to execute
   --mode <mode>        Test mode: standard | tdd-red
   --level <1-4>        Autonomy level (default: 3)
-  --standard <std>     ISO standard: ISO_42010 | ISO_25010
+  --standard <std>     Documentation standard: SYSTEM_ARCHITECTURE | QUALITY_METRICS
   --template <name>    Template to scaffold: SRS | SDD | SCS | KANBAN | WBS | SCRUM | ADR | STD | STR | API_SPEC | TROUBLESHOOTING
   --msg <message>      Commit message
   --ci                 Enable CI/headless mode (no interactive prompts)
@@ -1324,7 +1354,7 @@ Examples:
   harness.sh test --id TASK-001 --cmd "c8 node --test test.js" --mutation
   harness.sh run --id TASK-001 --level 4 --ci
   harness.sh run --id TASK-001 --adapter kmp --level 3
-  harness.sh document --standard ISO_42010
+  harness.sh document --standard SYSTEM_ARCHITECTURE
   harness.sh docs-init
   harness.sh docs-init --lite
   harness.sh docs-init --template WBS
@@ -1355,7 +1385,7 @@ main() {
   shift
 
   # Parse global flags
-  local task_id="" command="" mode="standard" standard="ISO_25010" msg="" template="all"
+  local task_id="" command="" mode="standard" standard="QUALITY_METRICS" msg="" template="all"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in

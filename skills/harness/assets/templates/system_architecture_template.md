@@ -1,4 +1,4 @@
-# ISO/IEC/IEEE 42010 Architecture Specification
+# System Architecture Specification
 
 ## 1. Overview
 This document provides the architectural description of the system, synchronized with the semantic map.

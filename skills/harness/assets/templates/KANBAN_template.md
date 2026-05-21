@@ -63,11 +63,11 @@
 
 | Task ID | Title | Priority | Assignee | Estimated Size | Waiting Since |
 |---|---|---|---|---|---|
-| {TASK-XXX} | {Description} | {P0} | {Agent/Dev} | {S/M/L/XL} | {DATE} |
+| {TASK-XXX} | {Description} | {P0} | {Agent/DEV} | {S/M/L/XL} | {DATE} |
 
 ### In Progress (WIP: 0 / 3)
 
-| Task ID | Title | Agent/Dev | Phase | Cycle Log | Started | Elapsed |
+| Task ID | Title | Agent/DEV | Phase | Cycle Log | Started | Elapsed |
 |---|---|---|---|---|---|---|
 | {TASK-XXX} | {Description} | {antigravity/jules/dev} | {RED/GREEN/DOC} | [Log](docs/cycle_logs/{task_id}_log.md) | {DATE} | {Nh} |
 

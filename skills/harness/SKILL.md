@@ -30,10 +30,10 @@ Tasks can be delegated to specialized sub-agents via the `assigned_sub_agent` fi
 | Sub-Agent | Phase | Scope |
 |-----------|-------|-------|
 | **QA** | RED | Write failing tests only. Forbidden from production code. |
-| **Dev** | GREEN | Implement production code to pass tests. |
-| **Doc** | DOCUMENT | Update `docs/` only. Forbidden from `src/` and `tests/`. |
+| **DEV** | GREEN | Implement production code to pass tests. |
+| **DOC** | DOCUMENT | Update `docs/` only. Forbidden from `src/` and `tests/`. |
 
-Set `"assigned_sub_agent": null` for single-agent mode (default).
+The harness engine dynamically updates the `assigned_sub_agent` to `QA` (during the RED phase), `DEV` (during the GREEN phase), and `DOC` (during the DOCUMENT phase) depending on the active TDD stage. Set `"assigned_sub_agent": null` for single-agent mode (default).
 
 ## Autonomy Levels
 
@@ -154,7 +154,7 @@ After 3 failed attempts, emit `<human_handoff reason="..."/>` and STOP.
 2. **[REASON]**: Write reasoning to `docs/cycle_logs/[task_id]_log.md`.
 3. **[ACT]**: Implement changes and tests.
 4. **[VERIFY]**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id [task_id] --cmd "[command]"`.
-5. **[DOCUMENT]**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010`.
+5. **[DOCUMENT]**: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard SYSTEM_ARCHITECTURE`.
    - Use **fragment-based updates** — do not rewrite monolithic documents. Read `docs/index.md` first, route to the correct fragmented file (e.g., `docs/requirements/auth.md`), and apply surgical updates.
    - For KANBAN: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh kanban-render` (SSOT, do not edit directly).
    - For Human Review: Run `[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document-build` to stitch fragments together.
@@ -178,9 +178,9 @@ After 3 failed attempts, emit `<human_handoff reason="..."/>` and STOP.
 # Kotlin/KMP project
 [ABSOLUTE_SKILL_PATH]/scripts/harness.sh test --id TASK-001 --cmd "./gradlew test" --adapter kmp
 
-# Generate ISO documentation
-[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_42010
-[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard ISO_25010
+# Generate standard documentation
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard SYSTEM_ARCHITECTURE
+[ABSOLUTE_SKILL_PATH]/scripts/harness.sh document --standard QUALITY_METRICS
 
 # Commit with coverage validation
 [ABSOLUTE_SKILL_PATH]/scripts/harness.sh commit --id TASK-001 --msg "feat: add validation"
@@ -235,7 +235,7 @@ Every task tracks its own productivity metrics:
 - **`coverage`**: Line coverage percentage.
 - **`mutation_score`**: Mutation testing score (when enabled).
 
-The ISO 25010 quality report includes a **Cost & Token Dashboard** aggregating total tokens used and estimated USD cost per feature.
+The Quality Metrics report includes a **Cost & Token Dashboard** aggregating total tokens used and estimated USD cost per feature.
 
 ## Log Rotation & Archival
 
@@ -278,7 +278,7 @@ The harness utilizes a **Fragment-Based Documentation Architecture** to optimize
 docs/
 ├── index.md                  # Master Index (Routing file for AI agents)
 ├── requirements/             # Fragmented SRS/Functional specs
-├── architecture/             # Fragmented SDD/ISO_42010 components
+├── architecture/             # Fragmented SDD/SYSTEM_ARCHITECTURE components
 ├── management/               # Kanban, Scrum, ADRs, Troubleshooting
 └── tasks/                    # Task JSONs
 ```
@@ -301,7 +301,7 @@ The harness provides a complete set of software engineering and agile document t
 | **STR** | `assets/templates/str_template.md` | Software Test Report (telemetry-integrated) |
 | **API Spec** | `assets/templates/api_spec_template.md` | API Specification (OpenAPI 3.0 YAML) |
 | **Troubleshooting** | `assets/templates/troubleshooting_template.md` | Error resolution & incident log |
-| **ISO 25010** | `assets/templates/iso_25010_template.md` | Quality Metrics Dashboard |
-| **ISO 42010** | `assets/templates/iso_42010_template.md` | Architecture Specification |
+| **Quality Metrics** | `assets/templates/quality_metrics_template.md` | Quality Metrics Dashboard |
+| **System Architecture** | `assets/templates/system_architecture_template.md` | Architecture Specification |
 | **Map** | `assets/templates/map_template.md` | Semantic Map |
 | **Tasks** | `assets/templates/tasks_template.json` | Task JSON Definition |

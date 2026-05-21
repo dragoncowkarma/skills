@@ -35,7 +35,7 @@
 | Member / Agent | Role | Availability | Focus Area |
 |---|---|---|---|
 | {Developer Name} | Developer | {100% / 80%} | {Backend / Frontend / Full-stack} |
-| {antigravity} | AI Agent (Dev/QA) | Continuous | {Task execution via harness} |
+| {antigravity} | AI Agent (DEV/QA) | Continuous | {Task execution via harness} |
 | {jules} | AI Agent (PR) | 15 concurrent max | {Async PR generation} |
 | {gemini_cli} | AI Agent (Script) | On-demand | {Quick scripting tasks} |
 
@@ -47,8 +47,8 @@
 
 | Task ID | User Story / Description | Priority | Size (SP) | Assignee | SRS Req | Status |
 |---|---|---|---|---|---|---|
-| {TASK-XXX} | {As a [user], I want [feature] so that [benefit]} | {P0} | {3} | {Agent/Dev} | {REQ-XXX-NNN} | {To Do / In Progress / Done} |
-| {TASK-XXX} | {Description} | {P1} | {5} | {Agent/Dev} | {REQ-XXX-NNN} | {To Do} |
+| {TASK-XXX} | {As a [user], I want [feature] so that [benefit]} | {P0} | {3} | {Agent/DEV} | {REQ-XXX-NNN} | {To Do / In Progress / Done} |
+| {TASK-XXX} | {Description} | {P1} | {5} | {Agent/DEV} | {REQ-XXX-NNN} | {To Do} |
 
 **Total Committed**: {N} story points
 
@@ -110,8 +110,8 @@
 
 | Task ID | Title | Assignee | Status | Coverage | Retries | Duration | Notes |
 |---|---|---|---|---|---|---|---|
-| {TASK-XXX} | {Description} | {Agent/Dev} | {Verified/Approved} | {85%} | {1} | {45s} | {Completed successfully} |
-| {TASK-YYY} | {Description} | {Agent/Dev} | {Failed→Carried Over} | {65%} | {3} | {120s} | {Coverage gap in edge cases} |
+| {TASK-XXX} | {Description} | {Agent/DEV} | {Verified/Approved} | {85%} | {1} | {45s} | {Completed successfully} |
+| {TASK-YYY} | {Description} | {Agent/DEV} | {Failed→Carried Over} | {65%} | {3} | {120s} | {Coverage gap in edge cases} |
 
 ### 4.4 Demo Notes
 
