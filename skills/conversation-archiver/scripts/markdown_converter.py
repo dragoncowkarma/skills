@@ -28,11 +28,17 @@ class LogConverter:
                 text = text.replace(target, replacement)
         return text
 
-    def format_arg_value(self, val):
+    def format_arg_value(self, val, unquote=False):
         if not isinstance(val, str):
-            return str(val)
+            try:
+                val = json.dumps(val, ensure_ascii=False, default=str)
+            except (TypeError, ValueError):
+                val = str(val)
+            return self.sanitize_paths(val)
 
-        if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        # Gemini logs store string args JSON-encoded; Claude/Codex args are
+        # plain strings and must not have surrounding quotes stripped.
+        if unquote and val.startswith('"') and val.endswith('"') and len(val) >= 2:
             try:
                 decoded = json.loads(val)
                 if isinstance(decoded, str):
@@ -42,13 +48,13 @@ class LogConverter:
 
         return self.sanitize_paths(val)
 
-    def format_tool_args(self, args, indent="  "):
+    def format_tool_args(self, args, indent="  ", unquote=False):
         if not isinstance(args, dict):
             return f"`{self.sanitize_paths(str(args))}`"
 
         lines = []
         for key, value in args.items():
-            val = self.format_arg_value(value)
+            val = self.format_arg_value(value, unquote=unquote)
             if isinstance(val, str) and ("\n" in val or len(val) > 100):
                 lines.append(f"{indent}- **{key}**:\n{indent}  ```\n{val}\n{indent}  ```")
             else:
@@ -76,6 +82,8 @@ class LogConverter:
         for entry in entries:
             if entry.get("type") in ("session_meta", "response_item", "turn_context"):
                 return "codex"
+            if entry.get("type") in ("user", "assistant") and isinstance(entry.get("message"), dict):
+                return "claude"
             if "source" in entry:
                 return "gemini"
         return "gemini"
@@ -107,6 +115,8 @@ class LogConverter:
 
         if log_format == "codex":
             markdown_content = self.convert_codex_entries(entries)
+        elif log_format == "claude":
+            markdown_content = self.convert_claude_entries(entries)
         else:
             markdown_content = self.convert_gemini_entries(entries)
 
@@ -149,13 +159,143 @@ class LogConverter:
                         for tool_call in tool_calls:
                             name = tool_call.get("name", "unknown_tool")
                             args = tool_call.get("args", {})
-                            formatted_args = self.format_tool_args(args)
+                            formatted_args = self.format_tool_args(args, unquote=True)
                             markdown_content += f"- **{name}**:\n{formatted_args}\n"
                         markdown_content += "\n"
                 else:
                     markdown_content += f"## AI ({created_at})\n\n{content}\n\n"
 
             markdown_content += "---\n\n"
+
+        return markdown_content
+
+    def convert_claude_entries(self, entries):
+        markdown_content = (
+            "# Conversation History\n\n"
+            f"*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
+        )
+
+        meta_entry = next(
+            (
+                entry
+                for entry in entries
+                if entry.get("type") in ("user", "assistant")
+                and isinstance(entry.get("message"), dict)
+                and entry.get("sessionId")
+            ),
+            None,
+        )
+        model = next(
+            (
+                entry.get("message", {}).get("model")
+                for entry in entries
+                if entry.get("type") == "assistant"
+                and isinstance(entry.get("message"), dict)
+                and entry.get("message", {}).get("model")
+            ),
+            None,
+        )
+        if meta_entry:
+            markdown_content += "## Session Metadata\n\n"
+            for key in ("sessionId", "cwd", "version", "gitBranch", "entrypoint"):
+                value = meta_entry.get(key)
+                if value:
+                    markdown_content += f"- **{key}**: `{self.sanitize_paths(str(value))}`\n"
+            if model:
+                markdown_content += f"- **model**: `{model}`\n"
+            markdown_content += "\n---\n\n"
+
+        skipping_archiver = False
+        for entry in entries:
+            if entry.get("type") not in ("user", "assistant"):
+                continue
+            if entry.get("isSidechain") or entry.get("isMeta"):
+                continue
+            message = entry.get("message")
+            if not isinstance(message, dict):
+                continue
+
+            timestamp = entry.get("timestamp", "")
+            role = message.get("role")
+            content = message.get("content")
+
+            if role == "user":
+                texts = []
+                tool_results = []
+                if isinstance(content, str):
+                    texts.append(content)
+                elif isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, str):
+                            texts.append(item)
+                        elif isinstance(item, dict):
+                            if item.get("type") == "tool_result":
+                                tool_results.append(item)
+                            elif item.get("type") == "text":
+                                texts.append(item.get("text", ""))
+                            elif item.get("type") == "image":
+                                texts.append("*[image attached]*")
+
+                user_text = "\n".join(
+                    text
+                    for text in texts
+                    if text and not text.lstrip().startswith("<system-reminder>")
+                ).strip()
+                if user_text:
+                    # Skip only actual skill invocations, not mere mentions of the path.
+                    skipping_archiver = (
+                        user_text.lstrip().startswith("/conversation-archiver")
+                        or "<command-name>/conversation-archiver" in user_text
+                    )
+                    if not skipping_archiver:
+                        markdown_content += (
+                            f"## User ({timestamp})\n\n"
+                            f"{self.sanitize_paths(user_text)}\n\n---\n\n"
+                        )
+
+                if skipping_archiver:
+                    continue
+
+                for result in tool_results:
+                    output = self.sanitize_paths(self.content_to_text(result.get("content", "")))
+                    tool_use_id = result.get("tool_use_id", "unknown_call")
+                    if output.strip():
+                        markdown_content += (
+                            f"## Tool Output ({timestamp})\n\n"
+                            f"- **tool_use_id**: `{tool_use_id}`\n\n"
+                            f"```\n{output}\n```\n\n---\n\n"
+                        )
+
+            elif role == "assistant":
+                if skipping_archiver:
+                    continue
+
+                blocks = content if isinstance(content, list) else [content]
+                for item in blocks:
+                    if isinstance(item, str):
+                        if item.strip():
+                            markdown_content += (
+                                f"## AI ({timestamp})\n\n"
+                                f"{self.sanitize_paths(item)}\n\n---\n\n"
+                            )
+                        continue
+                    if not isinstance(item, dict):
+                        continue
+                    item_type = item.get("type")
+                    if item_type == "text":
+                        text = item.get("text", "")
+                        if text.strip():
+                            markdown_content += (
+                                f"## AI ({timestamp})\n\n"
+                                f"{self.sanitize_paths(text)}\n\n---\n\n"
+                            )
+                    elif item_type == "tool_use":
+                        name = item.get("name", "unknown_tool")
+                        formatted_args = self.format_tool_args(item.get("input", {}))
+                        markdown_content += (
+                            f"## Tool Call ({timestamp})\n\n"
+                            f"- **{name}**:\n{formatted_args}\n\n---\n\n"
+                        )
 
         return markdown_content
 
@@ -231,11 +371,11 @@ def main():
     parser.add_argument("output_file", help="Path to the output Markdown file")
     parser.add_argument("--root", help="Project root path for normalization")
     parser.add_argument("--brain", help="Brain path for normalization ($BRAIN_PATH)")
-    parser.add_argument("--session", help="Codex session path for normalization ($SESSION_PATH)")
+    parser.add_argument("--session", help="Codex/Claude session path for normalization ($SESSION_PATH)")
     parser.add_argument("--home", help="Home path for normalization (~)")
     parser.add_argument(
         "--format",
-        choices=["auto", "gemini", "codex"],
+        choices=["auto", "gemini", "codex", "claude"],
         default="auto",
         help="Input log format",
     )
